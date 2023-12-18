@@ -17,16 +17,6 @@
 #include "g2o/types/slam2d/types_slam2d.h"
 #include "g2o/types/slam3d/types_slam3d.h"
 
-struct Info
-{
-    bool estimate;
-    bool gt;
-    int n_variables;
-    int n_loops;
-    int opt_iterations;
-    double opt_time;
-};
-
 struct Config
 {
   std::string name;
@@ -80,7 +70,6 @@ bool restore(g2o::SparseOptimizer& opt);
 bool discard(g2o::SparseOptimizer& opt);
 void readSolutionFile(std::vector<Eigen::Isometry2d>& poses, const std::string& path);
 void readConfig(const std::string& cfg_filepath, Config& out_cfg);
-void generateDistributionFile(const std::string& name, const std::vector<struct Info>& statistics);
 void printProgress(double percentage);
 
 /*

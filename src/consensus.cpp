@@ -22,28 +22,19 @@ void simulating_incremental_data(const Config& cfg,
 
     IPC ipc(open_loop_problem, cfg);
 
-    // STUDY DISTRIBUTION OF REJECTIONS / OUTLIERS IN TIME
-    vector<struct Info> statistics(tot_hypothesis);
-
     // Simulating incremental addition of edges
     double avg_time = 0.0;
     cout << "Starting simulation of incremental dataset -> Displaying relative status : " << endl;
     for ( size_t candidate_id = 0 ; candidate_id < tot_hypothesis ; ++candidate_id )
     {
-        struct Info stats;
-        stats.gt = gt_loops[candidate_id].first;
-
         chrono::steady_clock::time_point begin = chrono::steady_clock::now();
-        bool consistent = ipc.agreementCheck(gt_loops[candidate_id].second, stats);
+        bool consistent = ipc.agreementCheck(gt_loops[candidate_id].second);
         chrono::steady_clock::time_point end = chrono::steady_clock::now();
 
         bucket[candidate_id] = consistent ? 1 : 0;
-        stats.estimate = consistent;
 
         chrono::microseconds delta_time = chrono::duration_cast<chrono::microseconds>(end - begin);
-        stats.opt_time = delta_time.count() / 1000000.0;
-        avg_time += stats.opt_time;
-        statistics[candidate_id] = stats;
+        avg_time += delta_time.count() / 1000000.0;
 
         printProgress((double)(candidate_id + 1) / (double)tot_hypothesis);
     }
@@ -91,8 +82,6 @@ void simulating_incremental_data(const Config& cfg,
     cout << "Precision = " << precision << endl;        
     cout << "Recall = " << recall << endl;        
     std::cout << "Size of MAX consistent set = " << max_consensus_set.size() << std::endl;
-
-    generateDistributionFile(cfg.name, statistics);
 
     ofstream outfile;
     outfile.open(cfg.output.c_str());
@@ -149,7 +138,7 @@ IPC::~IPC()
     _edgesxcl_only_loops.clear();
 }
 
-bool IPC::agreementCheck(EdgeSE2* loop_candidate, struct Info& stats)
+bool IPC::agreementCheck(EdgeSE2* loop_candidate)
 {
     // Start & End Idx of Simple Loop
     int id1 = loop_candidate->vertices()[0]->id();
@@ -168,10 +157,8 @@ bool IPC::agreementCheck(EdgeSE2* loop_candidate, struct Info& stats)
         // Generate map hypothesis closed-loop subproblem
         store(*_problem);
         fixComplementary(*_problem, id1, id2);
-        stats.n_variables = id2 - id1;
-        stats.n_loops = 0;
 
-        if (!isAgreeingWithCurrentState(*_problem, eset, _fast_reject_th, _fast_reject_iter_base, stats.opt_iterations))
+        if (!isAgreeingWithCurrentState(*_problem, eset, _fast_reject_th, _fast_reject_iter_base))
         {
             restore(*_problem);
             return false;
@@ -235,15 +222,12 @@ bool IPC::agreementCheck(EdgeSE2* loop_candidate, struct Info& stats)
 
     // Generate map hypothesis closed-loop subproblem
     store(*_problem); 
-    stats.n_variables = new_cl_end - new_cl_start;
-    stats.n_loops = only_loops; 
     fixComplementary(*_problem, new_cl_start, new_cl_end);
     eset_loops.insert(loop_candidate);
 
     if (!isAgreeingWithCurrentState(*_problem, eset, 
                                     _slow_reject_th, 
-                                    _slow_reject_iter_base, 
-                                    stats.opt_iterations))
+                                    _slow_reject_iter_base))
     {
         restore(*_problem);
         return false;

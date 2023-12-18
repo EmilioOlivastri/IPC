@@ -190,23 +190,6 @@ void store(const std::string& name, const std::vector<g2o::VertexSE2*>& v_poses)
     return;
 }
 
-
-void generateDistributionFile(const string& name, const vector<struct Info>& statistics)
-{
-    static const string prefix = "../data/";
-    string dst = prefix + name + ".txt";
-
-    ofstream out(dst);
-    for ( auto& stat : statistics )
-        out << stat.estimate << " " << stat.gt << " " 
-            << stat.n_variables << " " << stat.n_loops << " "
-            << stat.opt_iterations << " " << stat.opt_time 
-            << endl;
-    out.close();
-
-    return;
-}
-
 void readSolutionFile(vector<Eigen::Isometry2d>& poses, const string& path)
 {
     const int LINESIZE = 81920;

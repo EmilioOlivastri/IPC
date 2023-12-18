@@ -9,7 +9,7 @@ Method that verifies if inliers accept the new measurment. It is based Chi-Squar
 @ param th : threshold for the Chi-Squared Test;
 @ return val : true if agree, false if not agree;
 */
-bool isAgreeingWithCurrentState(g2o::SparseOptimizer& problem, g2o::OptimizableGraph::EdgeSet& eset, double th, int iter_base, int& eff_iters);
+bool isAgreeingWithCurrentState(g2o::SparseOptimizer& problem, g2o::OptimizableGraph::EdgeSet& eset, double th, int iter_base);
 
 /*
 Method that fixes the vertices that do not participate to the optimization.

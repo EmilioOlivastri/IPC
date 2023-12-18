@@ -14,10 +14,10 @@ public :
     IPC(g2o::SparseOptimizer& open_loop_problem, const Config& cfg);
     ~IPC();
 
-    bool agreementCheck(g2o::EdgeSE2* loop_candidate, struct Info& stats);
+    bool agreementCheck(g2o::EdgeSE2* loop_candidate);
 
-    inline const std::vector<std::pair<int, int>>& getMaxConsensusSet() const { return _max_consensus_set; }
-    inline const std::vector<std::pair<int, int>>& getClusters() const { return _clusters; }
+    const std::vector<std::pair<int, int>>& getMaxConsensusSet() const { return _max_consensus_set; }
+    const std::vector<std::pair<int, int>>& getClusters() const { return _clusters; }
 
 private :
 

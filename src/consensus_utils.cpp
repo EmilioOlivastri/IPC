@@ -3,14 +3,14 @@
 using namespace std;
 using namespace g2o;
 
-bool isAgreeingWithCurrentState(SparseOptimizer& problem, OptimizableGraph::EdgeSet& eset, double th, int iter_base, int& eff_iters)
+bool isAgreeingWithCurrentState(SparseOptimizer& problem, OptimizableGraph::EdgeSet& eset, double th, int iter_base)
 {
     // Generate map hypothesis closed-loop subproblem
     problem.initializeOptimization(eset);
     problem.computeActiveErrors();
     int iter = iter_base;
     iter = eset.size() > 100 ? iter * 5 : iter ;
-    eff_iters = problem.optimize(iter);
+    problem.optimize(iter);
     problem.computeActiveErrors();
 
     for (auto& e : eset )

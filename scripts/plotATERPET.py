@@ -1,21 +1,6 @@
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
 import pandas as pd
-
-from texttable import Texttable
-import latextable
-
-def latexfy(table_array, dataset):
-    # Example 3 - Position
-    table_3 = Texttable()
-    table_3.set_cols_align(["c"] * 11)
-    table_3.set_deco(Texttable.HEADER | Texttable.VLINES)
-    table_3.add_rows(table_array)
-    print('Texttable Output:')
-    print(table_3.draw())
-    print('\nLatextable Output:')
-    print(latextable.draw_latex(table_3, caption=dataset, label="table:position", position='ht'))
 
 def read_PRT(path_pr) :
 
@@ -138,8 +123,6 @@ def plot(results, vot_results, xlabel, col, methods_name, colors, markers, terro
         
         plt.plot(ticks, means, label=alg, marker=markers[idx], color=colors[idx], markersize=8)
     
-    #plt.ylim(ymin=terror_min, ymax=terror_max)
-    #plt.xlabel(xlabel)
     plt.grid()
     
     plt.subplot(2, 2, 2)
@@ -152,8 +135,6 @@ def plot(results, vot_results, xlabel, col, methods_name, colors, markers, terro
         
         plt.plot(ticks, means, label=alg, marker=markers[idx], color=colors[idx], markersize=8)
     
-    #plt.ylim(ymin=rerror_min, ymax=rerror_max)	
-    #plt.xlabel(xlabel)
     plt.grid()
 
     plt.subplot(2, 1, 2)
@@ -161,7 +142,7 @@ def plot(results, vot_results, xlabel, col, methods_name, colors, markers, terro
     for idx, alg in enumerate(methods_name):
         ticks = []
         means = []
-        if alg == 'VOT' :
+        if alg == 'IPC' :
             idx_alg = idx
             continue
         for data in results[alg] :
@@ -178,22 +159,11 @@ def plot(results, vot_results, xlabel, col, methods_name, colors, markers, terro
             tmp.append(vot_results[dataset][out]['total_time'][0])
         means_vt.append(np.mean(tmp))
 
-    plt.plot(ticks_vt, means_vt, label="VOT", marker=markers[idx_alg], color=colors[idx_alg], markersize=8)
-    #print(ticks_vt)
-    #print(means_vt)
-
-    ##plt.ylim(ymin=rerror_min, ymax=rerror_max)
+    plt.plot(ticks_vt, means_vt, label="IPC", marker=markers[idx_alg], color=colors[idx_alg], markersize=8)
     plt.xlabel(xlabel)	
     plt.grid()
 
 
-def printMethodStats(diz, method):
-
-    elems = [1, 4, 6, 9]
-    for x in elems :
-        print(f'out = {diz[method][x]["out"][0]} | f1 = {diz[method][x]["f1"][0]} | prec = {diz[method][x]["prec"][0]} | rpe = {diz[method][x]["rpe"][0]}')
-        print("-----------")
-    
 def main() :
 
     base_path = '/home/slam-emix/Datasets/ICRA_RESULTS/'
@@ -201,18 +171,14 @@ def main() :
     runs = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09']
     datasets = ['MIT', 'INTEL', 'M3500', 'CSAIL', 'FRH', 'FR079']
     dataset_inliers = [20.0, 256.0, 1954.0, 128.0, 229.0, 1505.0]
-    opt = ['G2O', 'GTSAM']
     alg_gtsam = ['GNC', 'GM', 'HUBER', 'DCS']
-    #alg_gtsam = ['GNC', 'HUBER', 'DCS']
-    #alg_g2o = ['VOT', 'MAXMIX']
-    alg_g2o = ['MAXMIX', 'VOT', 'ADAPT']
+    alg_g2o = ['MAXMIX', 'IPC', 'ADAPT']
     alg_rpgo = ['PCM']
     full_list_algs = alg_gtsam + alg_g2o + alg_rpgo
     markers = ['X', 'o', '^', 'D', 'v', 's', 'p', 'P']
     colors = ['red', 'blue', 'green', 'purple', 'pink', 'cyan', 'orange', 'brown']
                 
     df = getData(base_path, datasets, outliers, runs, alg_gtsam, alg_g2o, alg_rpgo)
-    #print(df.head())
 
     diz = {}
     for alg in full_list_algs :
@@ -232,11 +198,7 @@ def main() :
                             'time': [expr_df["TIME"].mean(), expr_df["TIME"].std()]})
 
 
-    printMethodStats(diz, "MAXMIX")
-    print("#########")
-    printMethodStats(diz, "VOT")
-
-    vot_df = df[df["ALG"] == "VOT"] 
+    vot_df = df[df["ALG"] == "IPC"] 
     vot_diz = {}
     for idd, dataset in enumerate(datasets):
         dts_df = vot_df[vot_df["DSET"] == dataset]
@@ -257,25 +219,9 @@ def main() :
                                      'voting_time' : [mean_vot, std_vot],
                                      'total_time': [total_edges * mean_vot, std_vot]})
             increment += 0.1
-    #print(vot_diz['MIT'])     
 
-    # Computing table
-    table_dt, table_tt  = [], []
-    table_dt.append(['Dataset',  '10\%', '20\%', '30\%', '40\%', '50\%', '60\%', '70\%', '80\%', '90\%', '100\%'])
-    table_tt.append(['Dataset',  '10\%', '20\%', '30\%', '40\%', '50\%', '60\%', '70\%', '80\%', '90\%', '100\%'])
-    for idd, dataset in enumerate(datasets):
-            row_dt, row_tt = [dataset], [dataset]
-            for data in vot_diz[dataset] :
-                row_dt.append(data['voting_time'][0])
-                row_tt.append(data['total_time'][0])
-
-            table_dt.append(row_dt)
-            table_tt.append(row_tt)
-
-    #latexfy(table_dt,'Time')
-    #latexfy(table_tt,'F1')
     
-    fig = plt.figure(figsize=(12, 4))
+    plt.figure(figsize=(12, 4))
     plt.subplot(2, 2, 1)
     plt.ylabel('ATE [m]')
     plt.subplot(2, 2, 2)
@@ -283,13 +229,11 @@ def main() :
     plt.subplot(2, 1, 2)
     plt.ylabel('Convergence [s]')
 
-
     plot(results=diz, vot_results=vot_diz, xlabel='Outliers [%]', col=1, methods_name=full_list_algs, 
          colors=colors, markers=markers, terror_min= 0.45, terror_max=1.0, 
          rerror_min=0.3, rerror_max=1.0)
 
     plt.tight_layout()
-    #plt.show()
 
     return 
 
