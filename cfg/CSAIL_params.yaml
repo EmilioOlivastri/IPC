@@ -1,0 +1,12 @@
+name : "CSAIL"
+dataset : "/home/slam-emix/Datasets/BACK_END/2D/CSAIL/DATA/ORI/graph.g2o"
+ground_truth : "/home/slam-emix/Datasets/BACK_END/2D/CSAIL/DATA/GT.txt"
+output : "res.txt"
+visualize : 0
+canonic_inliers : 128
+fast_reject_th : 6.251
+fast_reject_iter_base : 50
+slow_reject_th : 6.251
+slow_reject_iter_base : 100
+
+# NEL FUTURO AGGIUNGERE ANCHE SCELTA SULLA STRATEGIA DI ESPLORAZIONE
