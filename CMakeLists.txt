@@ -17,14 +17,14 @@ include_directories(
   ${YAML_CPP_INCLUDE_DIR}
 )
 
-add_executable(${PROJECT_NAME} 
-src/voting_consensus_node.cpp
+add_executable(ipc_tester
+src/ipc_tester.cpp
 src/utils.cpp
 src/consensus_utils.cpp
 src/consensus.cpp
 )
 
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(ipc_tester
   ${catkin_LIBRARIES}
   ${G2O_TYPES_SLAM2D}
   ${G2O_TYPES_SLAM3D}

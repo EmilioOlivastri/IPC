@@ -1,6 +1,6 @@
 #pragma once
 
-#include "voting_consensus/utils.hpp"
+#include "ipc/utils.hpp"
 
 /*
 Method that verifies if inliers accept the new measurment. It is based Chi-Squared Test.

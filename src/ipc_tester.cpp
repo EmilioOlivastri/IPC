@@ -1,27 +1,18 @@
-#include "voting_consensus/utils.hpp"
-#include "voting_consensus/consensus.hpp"
-#include "voting_consensus/consensus_utils.hpp"
+#include "ipc/consensus.hpp"
 
 using namespace std;
 using namespace g2o;
 
-// we use the 2D and 3D SLAM types here
 G2O_USE_TYPE_GROUP(slam2d);
-G2O_USE_TYPE_GROUP(slam3d);
 G2O_USE_OPTIMIZATION_LIBRARY(eigen);
 
 int main(int argc, char** argv) 
 {
   // Command line parsing
   string cfgFilename;
-  string inputFilename;
-  string outputFilename;
   CommandArgs arg;
   arg.param("c", cfgFilename, "",
             "path to cfg file");
-  arg.param("o", outputFilename, "", "output filename");
-  arg.paramLeftOver("graph-input", inputFilename, "",
-                    "graph file which will be processed");
   arg.parseArgs(argc, argv);
 
   Config cfg;
@@ -33,13 +24,12 @@ int main(int argc, char** argv)
 
   // create the optimizer to load the data and carry out the optimization
   SparseOptimizer optimizer;
-  setProblem(inputFilename, optimizer, init_poses, v_poses);
+  setProblem(cfg.dataset, optimizer, init_poses, v_poses);
 
   vector<EdgeSE2*> loops, odom_edges;
   splitProblemConstraints(optimizer, odom_edges, loops);
 
-  vector<EdgeSE2*> inliers, outliers;
-  ipc(cfg, optimizer, loops, inliers, outliers, outputFilename);
+  simulating_incremental_data(cfg, optimizer, loops);
 
   return 0;
 }

@@ -81,7 +81,7 @@ bool discard(g2o::SparseOptimizer& opt);
 void readSolutionFile(std::vector<Eigen::Isometry2d>& poses, const std::string& path);
 void readConfig(const std::string& cfg_filepath, Config& out_cfg);
 void generateDistributionFile(const std::string& name, const std::vector<struct Info>& statistics);
-void printProgress(double percentage) ;
+void printProgress(double percentage);
 
 /*
 Compare functions for the sorting/comparing operations from STL
