@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.0.2)
 project(IPC)
 
 set(CMAKE_CXX_FLAGS "-std=c++14 -O3")
+set(G2O_ROOT /home/slam-emix/Workspace/lib/g2o)
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 find_package(Boost REQUIRED COMPONENTS system)
@@ -25,7 +26,6 @@ src/consensus.cpp
 )
 
 target_link_libraries(ipc_tester
-  ${catkin_LIBRARIES}
   ${G2O_TYPES_SLAM2D}
   ${G2O_TYPES_SLAM3D}
   ${G2O_TYPES_DATA}
