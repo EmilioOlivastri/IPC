@@ -60,10 +60,10 @@ ROS was used for visualization of the obtained trajectories, while for the estim
 
 if you find this implementation and/or research helpful, please consider to cite:
 ```bibtex
-@article{olivastri2024ipc,
-  title={IPC: Incremental Probabilistic Consensus-based Consistent Set Maximization for SLAM Backends},
+@INPROCEEDINGS{olivastri2024ipc,
+  title={{IPC}: Incremental Probabilistic Consensus-based Consistent Set Maximization for SLAM Backends},
   author={Olivastri, Emilio and Pretto, Alberto},
-  journal={arXiv preprint arXiv:2405.08503},
+  booktitle={2024 IEEE International Conference on Robotics and Automation (ICRA)},
   year={2024}
 }
 ```
