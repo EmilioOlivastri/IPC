@@ -25,7 +25,6 @@ src/consensus.cpp
 )
 
 target_link_libraries(ipc_tester
-  ${catkin_LIBRARIES}
   ${G2O_TYPES_SLAM2D}
   ${G2O_TYPES_SLAM3D}
   ${G2O_TYPES_DATA}
