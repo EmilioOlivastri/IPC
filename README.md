@@ -25,13 +25,15 @@ make -j$(nproc --all)
 
 1. Select your favorite dataset pose graph optimization from [here](https://lucacarlone.mit.edu/datasets/). The dataset has to be in g2o format, some of them may need conversion.
 
-2. Spoil the dataset of your choice with the desired number of outliers using:
+2. Generate the ground truth file from that dataset using [SE-Sync](https://github.com/david-m-rosen/SE-Sync). Generate in such a way that the output is a text file that lists the poses of the trajectory in the following format (x, y, theta)
+
+3. Spoil the dataset of your choice with the desired number of outliers using:
 ```
 python3 scripts/generateDataset.py -i /path/to/clean/g2o_file -n n_outliers 
 ```
 > > The original version of this script is from the [vertigo](https://github.com/OpenSLAM-org/openslam_vertigo/blob/master/datasets/generateDataset.py) package.
 
-3. Adjust the config file based on the examples of the cfg folder.
+4. Adjust the config file based on the examples of the cfg folder.
 
 ```
 canonic_inliers : 1614 <- Number of correct loop closures;
@@ -40,7 +42,7 @@ fast_reject_iter_base : 50 <- Number of optimization steps for first check;
 slow_reject_th : 6.251 <- Chi2 threshold for second check;
 slow_reject_iter_base : 100 <- Number of optimization steps for second check;
 ```
-4. Run the following command for running the tester for IPC:
+5. Run the following command for running the tester for IPC:
 ```
 ./ipc_tester -c ../cfg/INTEL_params.yaml
 ```
