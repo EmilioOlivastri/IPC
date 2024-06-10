@@ -4,23 +4,25 @@ using namespace std;
 using namespace g2o;
 
 // Main body of the outlier detection algorithm
+template <class T, class EDGE, class VERTEX>
 void simulating_incremental_data(const Config& cfg,
                                  SparseOptimizer& open_loop_problem,
-                                 const vector<EdgeSE2*>& loops)
+                                 const vector<EDGE*>& loops)
 {
-    std::vector<Eigen::Isometry2d> poses_gt;
+
+    vector<T> poses_gt;
     readSolutionFile(poses_gt, cfg.ground_truth);
     
     // 0 = outliers | 1 = inliers    
     int tot_hypothesis = loops.size();    
     vector<int> bucket(tot_hypothesis, 1);
-    vector<pair<bool, EdgeSE2*>> gt_loops;
+    vector<pair<bool, EDGE*>> gt_loops;
 
     for (size_t idx = 0 ; idx < cfg.canonic_inliers; gt_loops.push_back(make_pair(true, loops[idx++])));
     for (size_t idx = cfg.canonic_inliers ; idx < loops.size(); gt_loops.push_back(make_pair(false, loops[idx++])));
     sort(gt_loops.begin(), gt_loops.end(), cmpTime);
 
-    IPC ipc(open_loop_problem, cfg);
+    IPC<EDGE, VERTEX> ipc(open_loop_problem, cfg);
 
     // Simulating incremental addition of edges
     double avg_time = 0.0;
@@ -40,9 +42,9 @@ void simulating_incremental_data(const Config& cfg,
     }
     cout << "\nCompleted!" << endl;
 
-    vector<EdgeSE2*> odom_edges;
-    getProblemOdom(open_loop_problem, odom_edges);
-    propagateGuess(open_loop_problem, 0, odom_edges.size(), odom_edges);
+    vector<EDGE*> odom_edges;
+    getProblemOdom<EDGE>(open_loop_problem, odom_edges);
+    propagateGuess<EDGE, VERTEX>(open_loop_problem, 0, odom_edges.size(), odom_edges);
 
     OptimizableGraph::EdgeSet eset_gl;
     for ( size_t i = 0 ; i < odom_edges.size(); eset_gl.insert(odom_edges[i++]) )
@@ -73,22 +75,22 @@ void simulating_incremental_data(const Config& cfg,
     float recall = tp / (float)(tp + fn);
 
 
-    const std::vector<std::pair<int, int>> clusters = ipc.getClusters();
-    const std::vector<std::pair<int, int>> max_consensus_set = ipc.getMaxConsensusSet();
+    const vector<pair<int, int>> clusters = ipc.getClusters();
+    const vector<pair<int, int>> max_consensus_set = ipc.getMaxConsensusSet();
 
     for ( size_t counter = 0 ; counter < clusters.size() ; ++counter )    
         cout << "L("<< counter << ") = [" << clusters[counter].first << ", " << clusters[counter].second << "]\n";
     cout << "Avg Time x test = " << avg_time / tot_hypothesis << " [s]\n";
     cout << "Precision = " << precision << endl;        
     cout << "Recall = " << recall << endl;        
-    std::cout << "Size of MAX consistent set = " << max_consensus_set.size() << std::endl;
+    cout << "Size of MAX consistent set = " << max_consensus_set.size() << endl;
 
     ofstream outfile;
-    outfile.open(cfg.output.c_str());
+    outfile.open(cfg.output.c_str()); 
     for (size_t it = 0; it < open_loop_problem.vertices().size(); ++it )
     {
-        VertexSE2* v = dynamic_cast<VertexSE2*>(open_loop_problem.vertex(it));
-        outfile << v->estimate()[0] << " " << v->estimate()[1] << " " << v->estimate()[2] << endl;
+        VERTEX* v = dynamic_cast<VERTEX*>(open_loop_problem.vertex(it));
+        writeVertex(outfile, v);
     }
     outfile.close();
 
@@ -102,21 +104,29 @@ void simulating_incremental_data(const Config& cfg,
     return;
 }
 
+template void simulating_incremental_data<Eigen::Isometry2d, EdgeSE2, VertexSE2>(const Config& cfg,
+                                                                                 SparseOptimizer& open_loop_problem,
+                                                                                 const vector<EdgeSE2*>& loops);
+template void simulating_incremental_data<Eigen::Isometry3d, EdgeSE3, VertexSE3>(const Config& cfg,
+                                                                                 SparseOptimizer& open_loop_problem,
+                                                                                 const vector<EdgeSE3*>& loops);
 
 // Constructor
-IPC::IPC(g2o::SparseOptimizer& open_loop_problem, const Config& cfg)
+template <class EDGE, class VERTEX> 
+IPC<EDGE, VERTEX>::IPC(g2o::SparseOptimizer& open_loop_problem, const Config& cfg)
 {
     // Inizialization
     _problem = &open_loop_problem;
-    getProblemOdom(*_problem, _odom_edges);
+    getProblemOdom<EDGE>(*_problem, _odom_edges);
 
     // Robustify simple voters --> only once
     double th = cfg.fast_reject_th;
     double sqrt_th = sqrt(th);
-    robustifyVoters(0, _odom_edges.size(), sqrt_th, _odom_edges);
+    robustifyVoters<EDGE>(0, _odom_edges.size(), sqrt_th, _odom_edges);
 
-    propagateGuess(*_problem, 0, _odom_edges.size(), _odom_edges);
-    store(*_problem);
+    propagateGuess<EDGE, VERTEX>(*_problem, 0, _odom_edges.size(), _odom_edges);
+    
+    store<VERTEX>(*_problem);
 
     _max_consensus_set.clear();
     _clusters.clear();
@@ -129,7 +139,8 @@ IPC::IPC(g2o::SparseOptimizer& open_loop_problem, const Config& cfg)
     _slow_reject_iter_base = cfg.slow_reject_iter_base;
 }
 
-IPC::~IPC()
+template <class EDGE, class VERTEX> 
+IPC<EDGE, VERTEX>::~IPC()
 {
     _problem->clear();
     _max_consensus_set.clear();
@@ -138,7 +149,8 @@ IPC::~IPC()
     _edgesxcl_only_loops.clear();
 }
 
-bool IPC::agreementCheck(EdgeSE2* loop_candidate)
+template <class EDGE, class VERTEX>
+bool IPC<EDGE, VERTEX>::agreementCheck(EDGE* loop_candidate)
 {
     // Start & End Idx of Simple Loop
     int id1 = loop_candidate->vertices()[0]->id();
@@ -155,23 +167,23 @@ bool IPC::agreementCheck(EdgeSE2* loop_candidate)
         eset.insert(loop_candidate);
 
         // Generate map hypothesis closed-loop subproblem
-        store(*_problem);
+        store<VERTEX>(*_problem);
         fixComplementary(*_problem, id1, id2);
 
-        if (!isAgreeingWithCurrentState(*_problem, eset, _fast_reject_th, _fast_reject_iter_base))
+        if (!isAgreeingWithCurrentState<EDGE>(*_problem, eset, _fast_reject_th, _fast_reject_iter_base))
         {
-            restore(*_problem);
+            restore<VERTEX>(*_problem);
             return false;
         }
         else
         {
-            discard(*_problem);
+            discard<VERTEX>(*_problem);
             _clusters.push_back(candidate);
             _edgesxcl.push_back(eset);
             eset_loop.insert(loop_candidate);
             _edgesxcl_only_loops.push_back(eset_loop);
             _max_consensus_set.push_back(candidate);
-            propagateCurrentGuess(*_problem, id2, _odom_edges);
+            propagateCurrentGuess<EDGE, VERTEX>(*_problem, id2, _odom_edges);
 
             return true;
         }
@@ -218,24 +230,24 @@ bool IPC::agreementCheck(EdgeSE2* loop_candidate)
     // Finally! Adding new_candidate edge!!
     eset.insert(loop_candidate);
     if ( vcl_id.size() > 1 )
-        propagateGuess(*_problem, 0, _odom_edges.size(), _odom_edges);
+        propagateGuess<EDGE, VERTEX>(*_problem, 0, _odom_edges.size(), _odom_edges);
 
     // Generate map hypothesis closed-loop subproblem
-    store(*_problem); 
+    store<VERTEX>(*_problem); 
     fixComplementary(*_problem, new_cl_start, new_cl_end);
     eset_loops.insert(loop_candidate);
 
-    if (!isAgreeingWithCurrentState(*_problem, eset, 
-                                    _slow_reject_th, 
-                                    _slow_reject_iter_base))
+    if (!isAgreeingWithCurrentState<EDGE>(*_problem, eset, 
+                                           _slow_reject_th, 
+                                           _slow_reject_iter_base))
     {
-        restore(*_problem);
+        restore<VERTEX>(*_problem);
         return false;
     }
     
-    discard(*_problem);            
+    discard<VERTEX>(*_problem);            
     _max_consensus_set.push_back(candidate);
-    propagateCurrentGuess(*_problem, new_cl_end, _odom_edges);
+    propagateCurrentGuess<EDGE, VERTEX>(*_problem, new_cl_end, _odom_edges);
 
     if ( vcl_id.size() > 1 )
     {

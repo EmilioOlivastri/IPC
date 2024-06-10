@@ -27,15 +27,8 @@ int main(int argc, char** argv)
   SparseOptimizer optimizer;
   setProblem<Isometry3d, EdgeSE3, VertexSE3>(cfg.dataset, optimizer, init_poses, v_poses);
 
-  cout << "Tot Edges = " << optimizer.edges().size() << endl;
-  cout << "Tot Vertices = " << optimizer.vertices().size() << endl;
-
   vector<EdgeSE3*> loops, odom_edges;
   splitProblemConstraints<EdgeSE3>(optimizer, odom_edges, loops);
-
-  cout << "Loop Edges = " << loops.size() << endl;
-  cout << "Odom Edges = " << odom_edges.size() << endl;
-
   simulating_incremental_data<Isometry3d, EdgeSE3, VertexSE3>(cfg, optimizer, loops);
 
   return 0;
