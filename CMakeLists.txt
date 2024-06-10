@@ -18,14 +18,50 @@ include_directories(
   ${YAML_CPP_INCLUDE_DIR}
 )
 
-add_executable(ipc_tester
-src/ipc_tester.cpp
+add_executable(ipc_tester_2D
+examples/ipc_tester_2D.cpp
 src/utils.cpp
 src/consensus_utils.cpp
 src/consensus.cpp
 )
 
-target_link_libraries(ipc_tester
+target_link_libraries(ipc_tester_2D
+  ${G2O_TYPES_SLAM2D}
+  ${G2O_TYPES_SLAM3D}
+  ${G2O_TYPES_DATA}
+  ${G2O_CORE_LIBRARY}
+  ${G2O_STUFF_LIBRARY}
+  ${G2O_SOLVER_EIGEN}
+  ${YAML_CPP_LIBRARIES}
+ )
+
+
+add_executable(ipc_tester_3D
+examples/ipc_tester_3D.cpp
+src/utils.cpp
+src/consensus_utils.cpp
+src/consensus.cpp
+)
+
+target_link_libraries(ipc_tester_3D
+  ${G2O_TYPES_SLAM2D}
+  ${G2O_TYPES_SLAM3D}
+  ${G2O_TYPES_DATA}
+  ${G2O_CORE_LIBRARY}
+  ${G2O_STUFF_LIBRARY}
+  ${G2O_SOLVER_EIGEN}
+  ${YAML_CPP_LIBRARIES}
+ )
+
+
+add_executable(graph_fixer
+examples/graph_fixer.cpp
+src/utils.cpp
+src/consensus_utils.cpp
+src/consensus.cpp
+)
+
+target_link_libraries(graph_fixer
   ${G2O_TYPES_SLAM2D}
   ${G2O_TYPES_SLAM3D}
   ${G2O_TYPES_DATA}

@@ -24,12 +24,12 @@ int main(int argc, char** argv)
 
   // create the optimizer to load the data and carry out the optimization
   SparseOptimizer optimizer;
-  setProblem(cfg.dataset, optimizer, init_poses, v_poses);
+  setProblem<SE2, EdgeSE2, VertexSE2>(cfg.dataset, optimizer, init_poses, v_poses);
 
   vector<EdgeSE2*> loops, odom_edges;
-  splitProblemConstraints(optimizer, odom_edges, loops);
+  splitProblemConstraints<EdgeSE2>(optimizer, odom_edges, loops);
 
-  simulating_incremental_data(cfg, optimizer, loops);
+  simulating_incremental_data<Eigen::Isometry2d, EdgeSE2, VertexSE2>(cfg, optimizer, loops);
 
   return 0;
 }
