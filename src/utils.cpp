@@ -18,14 +18,6 @@
 using namespace std;
 using namespace g2o;
 
-// Store the state of the graph
-bool store(SparseOptimizer& opt)
-{
-    for (auto vIt = opt.vertices().begin(); vIt != opt.vertices().end(); ++vIt)
-        static_cast<VertexSE2*>(vIt->second)->push();
-
-    return true;
-}
 
 bool restore(SparseOptimizer& opt)
 {
