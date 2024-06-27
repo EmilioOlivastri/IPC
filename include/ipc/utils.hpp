@@ -31,8 +31,6 @@ struct Config
   int slow_reject_iter_base;
 };
 
-// Function that stores the results of the optimization
-void store(const std::string& name, const std::vector<g2o::VertexSE2*>& v_poses);
 
 // Using edges to initialize graph
 template <class EDGE, class VERTEX>

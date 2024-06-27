@@ -233,24 +233,6 @@ void getProblemOdom(SparseOptimizer& optimizer,
 template void getProblemOdom<EdgeSE2>(SparseOptimizer& optimizer, vector<EdgeSE2*>& odom);
 template void getProblemOdom<EdgeSE3>(SparseOptimizer& optimizer, vector<EdgeSE3*>& odom);
 
-/*-------------------------------------------------------------------*/
-
-void store(const string& name, const vector<VertexSE2*>& v_poses)
-{
-    cout << "Saving final poses to file: " << name << endl;
-    ofstream poses_file(name.c_str());
-
-    // Iterating the vector of vertices to extract the map
-    for ( int i = 0 ; i < v_poses.size() ; ++i )
-    {
-        SE2 opt_pose = v_poses[i]->estimate(); 
-        poses_file << opt_pose[0] << " " << opt_pose[1] << " " << opt_pose[2] << endl;
-    }
-
-    poses_file.close();
-
-    return;
-}
 
 /*-------------------------------------------------------------------*/
 
