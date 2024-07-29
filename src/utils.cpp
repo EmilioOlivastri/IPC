@@ -328,6 +328,8 @@ void readConfig(const string& cfg_filepath, Config& out_cfg)
     out_cfg.fast_reject_iter_base = config["fast_reject_iter_base"].as<int>();
     out_cfg.slow_reject_th = config["slow_reject_th"].as<double>();
     out_cfg.slow_reject_iter_base = config["slow_reject_iter_base"].as<int>();
+    out_cfg.use_best_k_buddies = config["use_best_k_buddies"].as<bool>();
+    out_cfg.k_buddies = config["k_buddies"].as<int>();
 
     return;
 }
@@ -346,6 +348,10 @@ bool cmpFirst(pair<int, int> p1, pair<int, int> p2)
     return (p1.first < p2.first);
 }
 
+bool cmpScores(pair<double, OptimizableGraph::Edge*> p1, pair<double, OptimizableGraph::Edge*> p2)
+{
+    return (p1.first > p2.first);
+}
 
 bool cmpSecond(pair<int, int> p1, pair<int, int> p2)
 {
