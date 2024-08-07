@@ -10,12 +10,16 @@ find_package(Eigen3 REQUIRED)
 find_package(G2O REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
+
+add_subdirectory(thirdParty)
+
 include_directories(
   include
   ${EIGEN_INCLUDE_DIR}
   "/usr/include/eigen3"
   ${G2O_INCLUDE_DIR}
   ${YAML_CPP_INCLUDE_DIR}
+  thirdParty
 )
 
 add_executable(ipc_tester_2D
@@ -23,6 +27,7 @@ examples/ipc_tester_2D.cpp
 src/utils.cpp
 src/consensus_utils.cpp
 src/consensus.cpp
+src/recovery.cpp
 )
 
 target_link_libraries(ipc_tester_2D
@@ -33,6 +38,7 @@ target_link_libraries(ipc_tester_2D
   ${G2O_STUFF_LIBRARY}
   ${G2O_SOLVER_EIGEN}
   ${YAML_CPP_LIBRARIES}
+  switchlib
  )
 
 
@@ -41,6 +47,7 @@ examples/ipc_tester_3D.cpp
 src/utils.cpp
 src/consensus_utils.cpp
 src/consensus.cpp
+src/recovery.cpp
 )
 
 target_link_libraries(ipc_tester_3D
@@ -51,6 +58,7 @@ target_link_libraries(ipc_tester_3D
   ${G2O_STUFF_LIBRARY}
   ${G2O_SOLVER_EIGEN}
   ${YAML_CPP_LIBRARIES}
+  switchlib
  )
 
 
@@ -59,6 +67,7 @@ examples/graph_fixer.cpp
 src/utils.cpp
 src/consensus_utils.cpp
 src/consensus.cpp
+src/recovery.cpp
 )
 
 target_link_libraries(graph_fixer
@@ -69,4 +78,5 @@ target_link_libraries(graph_fixer
   ${G2O_STUFF_LIBRARY}
   ${G2O_SOLVER_EIGEN}
   ${YAML_CPP_LIBRARIES}
+  switchlib
  )

@@ -330,6 +330,7 @@ void readConfig(const string& cfg_filepath, Config& out_cfg)
     out_cfg.slow_reject_iter_base = config["slow_reject_iter_base"].as<int>();
     out_cfg.use_best_k_buddies = config["use_best_k_buddies"].as<bool>();
     out_cfg.k_buddies = config["k_buddies"].as<int>();
+    out_cfg.use_recovery = config["use_recovery"].as<bool>();
 
     return;
 }

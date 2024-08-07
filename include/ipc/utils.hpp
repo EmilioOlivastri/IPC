@@ -31,6 +31,7 @@ struct Config
   int slow_reject_iter_base;
   bool use_best_k_buddies;
   int k_buddies;
+  bool use_recovery;
 };
 
 

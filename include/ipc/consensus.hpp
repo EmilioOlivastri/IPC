@@ -1,6 +1,10 @@
 #pragma once
 
 #include "ipc/consensus_utils.hpp"
+#include "switchableConstraints/include/edge_se3Switchable.hpp"
+#include "switchableConstraints/include/edge_se2Switchable.hpp"
+#include "switchableConstraints/include/vertex_switchLinear.hpp"
+
 
 // Using full deterministic search
 template <class T, class EDGE, class VERTEX>
@@ -17,6 +21,8 @@ public :
 
     bool agreementCheck(EDGE* loop_candidate);
 
+    void recoverySC(std::vector<int>& in_out, const std::vector<EDGE*>& loops);
+
     const std::vector<std::pair<int, int>>& getMaxConsensusSet() const { return _max_consensus_set; }
     const std::vector<std::pair<int, int>>& getClusters() const { return _clusters; }
 
@@ -24,6 +30,9 @@ private :
 
 
     double iou(const std::pair<int, int>& lp1, const std::pair<int, int>& lp2);
+    EdgeSE3Switchable* getSwitchableEdge(g2o::EdgeSE3* candidate, VertexSwitchLinear* sw, double weight);
+    EdgeSE2Switchable* getSwitchableEdge(g2o::EdgeSE2* candidate, VertexSwitchLinear* sw, double weight);
+
 
     // Return the voters with highest percentage of overlap with the candidate
     // Plus the beginning and end of the cluster
@@ -46,5 +55,7 @@ private :
     bool _use_best_k_buddies;
     int _k_buddies;
 
+    // Recovery behavior
+    bool _use_recovery;
 
 };

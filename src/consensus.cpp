@@ -17,6 +17,7 @@ void simulating_incremental_data(const Config& cfg,
     int tot_hypothesis = loops.size();    
     vector<int> bucket(tot_hypothesis, 1);
     vector<pair<bool, EDGE*>> gt_loops;
+    vector<EDGE*> sorted_loops;
 
     for (size_t idx = 0 ; idx < cfg.canonic_inliers; gt_loops.push_back(make_pair(true, loops[idx++])));
     for (size_t idx = cfg.canonic_inliers ; idx < loops.size(); gt_loops.push_back(make_pair(false, loops[idx++])));
@@ -34,6 +35,7 @@ void simulating_incremental_data(const Config& cfg,
         chrono::steady_clock::time_point end = chrono::steady_clock::now();
 
         bucket[candidate_id] = consistent ? 1 : 0;
+        sorted_loops.push_back(gt_loops[candidate_id].second);
 
         chrono::microseconds delta_time = chrono::duration_cast<chrono::microseconds>(end - begin);
         avg_time += delta_time.count() / 1000000.0;
@@ -52,6 +54,13 @@ void simulating_incremental_data(const Config& cfg,
     for ( size_t i = 0 ; i < gt_loops.size(); ++i )
         if ( bucket[i] == 1 )
             eset_gl.insert(gt_loops[i].second);
+
+    if ( cfg.use_recovery )
+    {
+        cout << "Starting Recovery Procedure" << endl;
+        ipc.recoverySC(bucket, sorted_loops);
+        cout << "Recovery Procedure Completed" << endl;
+    }
 
     open_loop_problem.initializeOptimization(eset_gl);
 
@@ -138,6 +147,8 @@ IPC<EDGE, VERTEX>::IPC(g2o::SparseOptimizer& open_loop_problem, const Config& cf
     _slow_reject_iter_base = cfg.slow_reject_iter_base;
     _use_best_k_buddies = cfg.use_best_k_buddies;
     _k_buddies = _use_best_k_buddies ? cfg.k_buddies : -1;
+
+    _use_recovery = true;
 }
 
 template <class EDGE, class VERTEX> 
