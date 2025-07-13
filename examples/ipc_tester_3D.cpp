@@ -1,4 +1,5 @@
 #include "ipc/consensus.hpp"
+#include "ipc/simulation.hpp"
 
 using namespace std;
 using namespace g2o;
