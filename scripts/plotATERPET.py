@@ -9,6 +9,7 @@ def read_PRT(path_pr) :
     with open(path_pr) as f:
         lines = f.readlines()
         pr, rec = lines[0].split()
+        #tot_time, _ = lines[1][:-1].split()
         data = [float(pr), float(rec), float(lines[1][:-1])]
 
     return np.array(data)
@@ -25,7 +26,7 @@ def read_tj_info(path_tf_info) :
     return np.array(data)
 
 
-def getData(base_path, datasets, outliers, runs, alg_gtsam, alg_g2o, alg_rpgo) :
+def getData(base_path, datasets, outliers, runs, alg_gtsam, alg_g2o) :
 
     final_dict = {'ALG' : [],
                   'DSET': [],
@@ -41,7 +42,7 @@ def getData(base_path, datasets, outliers, runs, alg_gtsam, alg_g2o, alg_rpgo) :
     exten = ['.TE', '.PR']
 
     for dataset in datasets :
-        first_sec = base_path + dataset + '/RESULTS/'
+        first_sec = base_path + dataset + '/EXP/210823/'
         for alg in alg_gtsam :
             second_sec = first_sec + 'GTSAM_' + alg + '/'
             for out in outliers :
@@ -66,28 +67,6 @@ def getData(base_path, datasets, outliers, runs, alg_gtsam, alg_g2o, alg_rpgo) :
 
         for alg in alg_g2o :
             second_sec = first_sec + 'G2O_' + alg + '/'
-            for out in outliers :
-                third_sec = second_sec + out + '/'
-                for run in runs :
-                    path_prt = third_sec + run + exten[1]
-                    path_tf_info = third_sec + run + exten[0]
-                    res_prt = read_PRT(path_prt)
-                    res_tf = read_tj_info(path_tf_info)
-                    final_dict['ALG'].append(alg)
-                    final_dict['DSET'].append(dataset) 
-                    final_dict['OUTLIERS'].append(int(out))    
-                    final_dict['RUN'].append(int(run))    
-                    final_dict['PREC'].append(float(res_prt[0]))    
-                    final_dict['REC'].append(float(res_prt[1]))
-                    f1 = (2 * float(res_prt[0]) * float(res_prt[1])) / (float(res_prt[0]) + float(res_prt[1]))
-                    final_dict['F1'].append(f1)
-                    final_dict['TIME'].append(float(res_prt[2]))    
-                    final_dict['ATE'].append(float(res_tf[0]))
-                    final_dict['ABS_T'].append(float(res_tf[1]))
-                    final_dict['RPE'].append(float(res_tf[2])) 
-
-        for alg in alg_rpgo :
-            second_sec = first_sec + 'RPGO_' + alg + '/'
             for out in outliers :
                 third_sec = second_sec + out + '/'
                 for run in runs :
@@ -147,7 +126,7 @@ def plot(results, vot_results, xlabel, col, methods_name, colors, markers, terro
             continue
         for data in results[alg] :
             ticks.append(data['out'])
-            means.append(data['time'][0])
+            means.append(data['f1'][0])
         
         plt.plot(ticks, means, label=alg, marker=markers[idx], color=colors[idx], markersize=8)
 
@@ -166,24 +145,24 @@ def plot(results, vot_results, xlabel, col, methods_name, colors, markers, terro
 
 def main() :
 
-    base_path = '/home/slam-emix/Datasets/ICRA_RESULTS/'
+    base_path = '/home/slam-emix/Datasets/BACK_END/2D/'
     outliers = ['10', '20', '30', '40', '50', '60', '70', '80', '90', '100']
     runs = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09']
     datasets = ['MIT', 'INTEL', 'M3500', 'CSAIL', 'FRH', 'FR079']
     dataset_inliers = [20.0, 256.0, 1954.0, 128.0, 229.0, 1505.0]
-    alg_gtsam = ['GNC', 'GM', 'HUBER', 'DCS']
-    alg_g2o = ['MAXMIX', 'IPC', 'ADAPT']
-    alg_rpgo = ['PCM']
-    full_list_algs = alg_gtsam + alg_g2o + alg_rpgo
+    alg_gtsam = ['GNC', 'GM', 'HUBER', 'DCS', 'PCM']
+    #alg_g2o = ['MAXMIX', 'IPC', 'ADAPT']
+    alg_g2o = ['MAXMIX', 'ADAPT']
+    full_list_algs = alg_gtsam + alg_g2o
     markers = ['X', 'o', '^', 'D', 'v', 's', 'p', 'P']
     colors = ['red', 'blue', 'green', 'purple', 'pink', 'cyan', 'orange', 'brown']
                 
-    df = getData(base_path, datasets, outliers, runs, alg_gtsam, alg_g2o, alg_rpgo)
+    df = getData(base_path, datasets, outliers, runs, alg_gtsam, alg_g2o)
 
     diz = {}
     for alg in full_list_algs :
         alg_df = df[df["ALG"] == alg]
-        alg_df = alg_df[alg_df["DSET"] == "FR079"]
+        alg_df = alg_df[alg_df["DSET"] == "MIT"]
         diz[alg] = []
 
         # compute statistics for elements of interest
@@ -234,6 +213,8 @@ def main() :
          rerror_min=0.3, rerror_max=1.0)
 
     plt.tight_layout()
+    plt.legend()
+    plt.show()
 
     return 
 

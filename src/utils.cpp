@@ -17,36 +17,64 @@
 
 using namespace std;
 using namespace g2o;
+using namespace Eigen;
 
+// Store the state of the graph
+template <class VERTEX>
+bool store(SparseOptimizer& opt)
+{
+    for (auto vIt = opt.vertices().begin(); vIt != opt.vertices().end(); ++vIt)
+        static_cast<VERTEX*>(vIt->second)->push();
 
+    return true;
+}
+
+template bool store<VertexSE2>(SparseOptimizer& opt);
+template bool store<VertexSE3>(SparseOptimizer& opt);
+
+/*-------------------------------------------------------------------*/
+
+template <class VERTEX>
 bool restore(SparseOptimizer& opt)
 {
     for (auto vIt = opt.vertices().begin(); vIt != opt.vertices().end(); ++vIt)
-        static_cast<VertexSE2*>(vIt->second)->pop();
+        static_cast<VERTEX*>(vIt->second)->pop();
 
-    store(opt);
+    store<VERTEX>(opt);
 
     return true;
 }
 
+template bool restore<VertexSE2>(SparseOptimizer& opt);
+template bool restore<VertexSE3>(SparseOptimizer& opt);
+
+/*-------------------------------------------------------------------*/
+
+template <class VERTEX>
 bool discard(SparseOptimizer& opt)
 {
     for (auto vIt = opt.vertices().begin(); vIt != opt.vertices().end(); ++vIt)
-        static_cast<VertexSE2*>(vIt->second)->discardTop();
+        static_cast<VERTEX*>(vIt->second)->discardTop();
 
     return true;
 }
 
+template bool discard<VertexSE2>(SparseOptimizer& opt);
+template bool discard<VertexSE3>(SparseOptimizer& opt);
+
+/*-------------------------------------------------------------------*/
+
+template <class EDGE, class VERTEX>
 void odometryInitialization(SparseOptimizer& optimizer)
 {
     // Iterating trough the edges
     for ( auto it_e = optimizer.edges().begin(); it_e != optimizer.edges().end(); ++it_e )
     {
-        auto edge_odom = dynamic_cast<EdgeSE2*>(*it_e);
+        auto edge_odom = dynamic_cast<EDGE*>(*it_e);
         if ( edge_odom != nullptr )
         {
-            auto v_fn = dynamic_cast<VertexSE2*>(edge_odom->vertices()[1]);
-            auto v_st = dynamic_cast<VertexSE2*>(edge_odom->vertices()[0]);
+            auto v_fn = dynamic_cast<VERTEX*>(edge_odom->vertices()[1]);
+            auto v_st = dynamic_cast<VERTEX*>(edge_odom->vertices()[0]);
 
             int id_st = v_st->id();
             int id_fn = v_fn->id();
@@ -59,16 +87,22 @@ void odometryInitialization(SparseOptimizer& optimizer)
     return;
 }
 
+template void odometryInitialization<EdgeSE2, VertexSE2>(SparseOptimizer& optimizer);
+template void odometryInitialization<EdgeSE3, VertexSE3>(SparseOptimizer& optimizer);
+
+/*-------------------------------------------------------------------*/
+
+template <class T, class EDGE, class VERTEX>
 void setProblem(const string& problem_file, 
                 SparseOptimizer& optimizer,
-                vector<SE2>& init_poses,
-                vector<VertexSE2*>& v_poses)
+                vector<T>& init_poses,
+                vector<VERTEX*>& v_poses)
 {
     optimizer.setVerbose(false);
     
     // allocate the solver
-    g2o::OptimizationAlgorithmProperty solverProperty;
-    optimizer.setAlgorithm(g2o::OptimizationAlgorithmFactory::instance()->construct("dl_var", solverProperty));
+    OptimizationAlgorithmProperty solverProperty;
+    optimizer.setAlgorithm(OptimizationAlgorithmFactory::instance()->construct("dl_var", solverProperty));
     
     // Loading the g2o file
     ifstream ifs(problem_file.c_str());
@@ -78,12 +112,12 @@ void setProblem(const string& problem_file,
         return;
     }
     optimizer.load(ifs);
-    odometryInitialization(optimizer);
+    odometryInitialization<EDGE, VERTEX>(optimizer);
     init_poses.resize(optimizer.vertices().size());
     v_poses.resize(optimizer.vertices().size());
     for ( auto it = optimizer.vertices().begin() ; it != optimizer.vertices().end() ; ++it )
     {
-        auto v1 = dynamic_cast<VertexSE2*>(it->second);
+        auto v1 = dynamic_cast<VERTEX*>(it->second);
         v_poses[v1->id()] = v1;
         init_poses[v1->id()]= v1->estimate();
     }
@@ -91,17 +125,29 @@ void setProblem(const string& problem_file,
     return;
 }
 
+template void setProblem<SE2, EdgeSE2, VertexSE2>(const string& problem_file, 
+                                                  SparseOptimizer& optimizer,
+                                                  vector<SE2>& init_poses,
+                                                  vector<VertexSE2*>& v_poses);
+template void setProblem<Isometry3d, EdgeSE3, VertexSE3>(const string& problem_file, 
+                                                         SparseOptimizer& optimizer,
+                                                         vector<Isometry3d>& init_poses,
+                                                         vector<VertexSE3*>& v_poses);
+
+/*-------------------------------------------------------------------*/
+
+template <class EDGE>
 void getProblemNOLOOPS(SparseOptimizer& optimizer,
-                       vector<EdgeSE2*>& loops)
+                       vector<EDGE*>& loops)
 {
     // Removing all the edges of the problem
-    vector<EdgeSE2*> toremove;
+    vector<EDGE*> toremove;
     for ( auto it = optimizer.edges().begin() ; it != optimizer.edges().end() ; ++it )
     {
-        auto edge = dynamic_cast<EdgeSE2*>(*it);
+        auto edge = dynamic_cast<EDGE*>(*it);
         if ( edge != nullptr && abs(edge->vertices()[1]->id() - edge->vertices()[0]->id()) > 1 )
         {
-            EdgeSE2* edge_cpy = new EdgeSE2;
+            EDGE* edge_cpy = new EDGE;
             edge_cpy->vertices()[0] = edge->vertices()[0];
             edge_cpy->vertices()[1] = edge->vertices()[1];
             edge_cpy->setMeasurement(edge->measurement());
@@ -118,15 +164,20 @@ void getProblemNOLOOPS(SparseOptimizer& optimizer,
     return;
 }
 
+template void getProblemNOLOOPS<EdgeSE2>(SparseOptimizer& optimizer, vector<EdgeSE2*>& loops);
+template void getProblemNOLOOPS<EdgeSE3>(SparseOptimizer& optimizer, vector<EdgeSE3*>& loops);
 
+/*-------------------------------------------------------------------*/
+
+template <class EDGE>
 void splitProblemConstraints(SparseOptimizer& optimizer,
-                             vector<EdgeSE2*>& odom,
-                             vector<EdgeSE2*>& loops)
+                             vector<EDGE*>& odom,
+                             vector<EDGE*>& loops)
 {
     // Dividing all the edges of the problem
     for ( auto it = optimizer.edges().begin() ; it != optimizer.edges().end() ; ++it )
     {
-        auto edge = dynamic_cast<EdgeSE2*>(*it);
+        auto edge = dynamic_cast<EDGE*>(*it);
         if ( edge == nullptr) continue;
         
         int diff = abs(edge->vertices()[1]->id() - edge->vertices()[0]->id());
@@ -137,14 +188,20 @@ void splitProblemConstraints(SparseOptimizer& optimizer,
     return;
 }
 
+template void splitProblemConstraints<EdgeSE2>(SparseOptimizer& optimizer, vector<EdgeSE2*>& odom, vector<EdgeSE2*>& loops);
+template void splitProblemConstraints<EdgeSE3>(SparseOptimizer& optimizer, vector<EdgeSE3*>& odom, vector<EdgeSE3*>& loops);
+
+/*-------------------------------------------------------------------*/
+
 // Controllato e giusto
+template <class EDGE>
 void getProblemLoops(SparseOptimizer& optimizer,
-                     vector<EdgeSE2*>& loops)
+                     vector<EDGE*>& loops)
 {
     // Getting the loops edges
     for ( auto it = optimizer.edges().begin() ; it != optimizer.edges().end() ; ++it )
     {
-        auto edge = dynamic_cast<EdgeSE2*>(*it);
+        auto edge = dynamic_cast<EDGE*>(*it);
         if ( edge != nullptr && abs(edge->vertices()[1]->id() - edge->vertices()[0]->id()) > 1 )
             loops.push_back(edge);
     }
@@ -152,54 +209,70 @@ void getProblemLoops(SparseOptimizer& optimizer,
     return;
 }
 
+template void getProblemLoops<EdgeSE2>(SparseOptimizer& optimizer, vector<EdgeSE2*>& loops);
+template void getProblemLoops<EdgeSE3>(SparseOptimizer& optimizer, vector<EdgeSE3*>& loops);
+
+/*-------------------------------------------------------------------*/
+
 // Controllato e giusto
+template <class EDGE>
 void getProblemOdom(SparseOptimizer& optimizer,
-                    vector<EdgeSE2*>& odom)
+                    vector<EDGE*>& odom)
 {
     // Getting the loops edges
     for ( auto it = optimizer.edges().begin() ; it != optimizer.edges().end() ; ++it )
     {
-        auto edge = dynamic_cast<EdgeSE2*>(*it);
+        auto edge = dynamic_cast<EDGE*>(*it);
         if ( edge != nullptr && abs(edge->vertices()[1]->id() - edge->vertices()[0]->id()) == 1 )
             odom.push_back(edge);
     }
-}
-
-void store(const std::string& name, const std::vector<g2o::VertexSE2*>& v_poses)
-{
-    cout << "Saving final poses to file: " << name << endl;
-    ofstream poses_file(name.c_str());
-
-    // Iterating the vector of vertices to extract the map
-    for ( int i = 0 ; i < v_poses.size() ; ++i )
-    {
-        SE2 opt_pose = v_poses[i]->estimate(); 
-        poses_file << opt_pose[0] << " " << opt_pose[1] << " " << opt_pose[2] << endl;
-    }
-
-    poses_file.close();
 
     return;
 }
 
-void readSolutionFile(vector<Eigen::Isometry2d>& poses, const string& path)
+template void getProblemOdom<EdgeSE2>(SparseOptimizer& optimizer, vector<EdgeSE2*>& odom);
+template void getProblemOdom<EdgeSE3>(SparseOptimizer& optimizer, vector<EdgeSE3*>& odom);
+
+
+/*-------------------------------------------------------------------*/
+
+void writeVertex(ofstream& out_data, VertexSE2* v)
+{
+    out_data << v->estimate()[0] << " " 
+             << v->estimate()[1] << " " 
+             << v->estimate()[2] << endl;
+    return;
+}
+
+
+void writeVertex(ofstream& out_data, VertexSE3* v)
+{
+    Isometry3d pose = v->estimate();
+    Quaterniond q(pose.linear());
+    Vector3d t = pose.translation();
+
+    out_data << t[0] << " " << t[1] << " " << t[2] << " "
+             << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+
+    return;
+}
+
+/*-------------------------------------------------------------------*/
+
+template <class T>
+void readSolutionFile(vector<T>& poses, const string& path)
 {
     const int LINESIZE = 81920;
 
-    std::ifstream in_data(path.c_str());
+    ifstream in_data(path.c_str());
     if (!in_data )
-        throw std::invalid_argument("Cannot find file : " + path);
+        throw invalid_argument("Cannot find file : " + path);
 
     // Keep going until the file has been read
-    double x, y, yaw;
     while ( !in_data.eof() )
     {
-        in_data >> x >> y >> yaw;
-
-        Eigen::Isometry2d p = Eigen::Isometry2d::Identity();
-        p.translation() = Eigen::Vector2d(x, y);
-        p.linear() = Eigen::Rotation2D<double>(yaw).toRotationMatrix();
-
+        T p = T::Identity();
+        readLine(in_data, p);
         poses.push_back(p);
 
         in_data.ignore(LINESIZE, '\n');
@@ -208,21 +281,57 @@ void readSolutionFile(vector<Eigen::Isometry2d>& poses, const string& path)
     return;
 }
 
-void readConfig(const std::string& cfg_filepath, Config& out_cfg)
+template void readSolutionFile<Isometry2d>(vector<Isometry2d>& poses, const string& path);
+template void readSolutionFile<Isometry3d>(vector<Isometry3d>& poses, const string& path);
+
+/*-------------------------------------------------------------------*/
+
+void readLine(ifstream& in_data, Isometry2d& pose)
+{
+    double x, y, yaw;
+    in_data >> x >> y >> yaw;
+
+    pose = Isometry2d::Identity();
+    pose.translation() = Vector2d(x, y);
+    pose.linear() = Eigen::Rotation2D<double>(yaw).toRotationMatrix();
+
+    return;
+}
+
+void readLine(ifstream& in_data, Isometry3d& pose)
+{
+    double x, y, z, qx, qy, qz, qw;
+    in_data >> x >> y >> z >> qx >> qy >> qz >> qw;
+
+    pose = Isometry3d::Identity();
+    pose.translation() = Vector3d(x, y, z);
+    pose.linear() = Quaterniond(qw, qx, qy, qz).toRotationMatrix();
+
+    return;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+void readConfig(const string& cfg_filepath, Config& out_cfg)
 {
     const YAML::Node config = YAML::LoadFile(cfg_filepath);
 
     // Filter parameters
-    out_cfg.name = config["name"].as<std::string>();
-    out_cfg.dataset = config["dataset"].as<std::string>();
-    out_cfg.ground_truth = config["ground_truth"].as<std::string>();
-    out_cfg.output = config["output"].as<std::string>();
+    out_cfg.name = config["name"].as<string>();
+    out_cfg.dataset = config["dataset"].as<string>();
+    out_cfg.ground_truth = config["ground_truth"].as<string>();
+    out_cfg.output = config["output"].as<string>();
+    out_cfg.s_factor = config["s_factor"].as<double>();
     out_cfg.visualize = config["visualize"].as<int>() == 1 ? true : false;
     out_cfg.canonic_inliers = config["canonic_inliers"].as<int>();
     out_cfg.fast_reject_th = config["fast_reject_th"].as<double>();
     out_cfg.fast_reject_iter_base = config["fast_reject_iter_base"].as<int>();
     out_cfg.slow_reject_th = config["slow_reject_th"].as<double>();
     out_cfg.slow_reject_iter_base = config["slow_reject_iter_base"].as<int>();
+    out_cfg.use_best_k_buddies = config["use_best_k_buddies"].as<bool>();
+    out_cfg.k_buddies = config["k_buddies"].as<int>();
+    out_cfg.use_recovery = config["use_recovery"].as<bool>();
 
     return;
 }
@@ -238,21 +347,28 @@ void printProgress(double percentage)
 
 bool cmpFirst(pair<int, int> p1, pair<int, int> p2)
 {
+    if (p1.first == p2.first)
+        return (p1.second < p2.second);
+
     return (p1.first < p2.first);
 }
 
+bool cmpScores(pair<double, OptimizableGraph::Edge*> p1, pair<double, OptimizableGraph::Edge*> p2)
+{
+    return (p1.first > p2.first);
+}
 
 bool cmpSecond(pair<int, int> p1, pair<int, int> p2)
 {
     return (p1.second < p2.second);
 }
 
-bool cmpEdgesID(EdgeSE2* e1, EdgeSE2* e2)
+bool cmpEdgesID(OptimizableGraph::Edge* e1, OptimizableGraph::Edge* e2)
 {
     return (e1->vertices()[1]->id() < e2->vertices()[1]->id());
 }
 
-bool cmpTime(pair<int, EdgeSE2*> p1, pair<int, EdgeSE2*> p2)
+bool cmpTime(pair<int, OptimizableGraph::Edge*> p1, pair<int, OptimizableGraph::Edge*> p2)
 {
     int id1_v1 = p1.second->vertices()[1]->id();
     int id1_v2 = p1.second->vertices()[0]->id();
@@ -264,3 +380,21 @@ bool cmpTime(pair<int, EdgeSE2*> p1, pair<int, EdgeSE2*> p2)
 
     return (id1_max < id2_max);
 }
+
+template <class EDGE>
+bool cmpEdgeContLow(EdgeContainer<EDGE>* ec1, EdgeContainer<EDGE>* ec2)
+{
+    return (ec1->id_low < ec2->id_low);
+}
+
+template bool cmpEdgeContLow<EdgeSE2>(EdgeContainer<EdgeSE2>* ec1, EdgeContainer<EdgeSE2>* ec2);
+template bool cmpEdgeContLow<EdgeSE3>(EdgeContainer<EdgeSE3>* ec1, EdgeContainer<EdgeSE3>* ec2);
+
+template <class EDGE>
+bool cmpEdgeContHigh(EdgeContainer<EDGE>* ec1, EdgeContainer<EDGE>* ec2)
+{
+    return (ec1->id_high < ec2->id_high);
+}
+
+template bool cmpEdgeContHigh<EdgeSE2>(EdgeContainer<EdgeSE2>* ec1, EdgeContainer<EdgeSE2>* ec2);
+template bool cmpEdgeContHigh<EdgeSE3>(EdgeContainer<EdgeSE3>* ec1, EdgeContainer<EdgeSE3>* ec2);

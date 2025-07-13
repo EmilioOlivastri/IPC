@@ -3,6 +3,7 @@
 using namespace std;
 using namespace g2o;
 
+template <class EDGE>
 bool isAgreeingWithCurrentState(SparseOptimizer& problem, OptimizableGraph::EdgeSet& eset, double th, int iter_base)
 {
     // Generate map hypothesis closed-loop subproblem
@@ -14,11 +15,16 @@ bool isAgreeingWithCurrentState(SparseOptimizer& problem, OptimizableGraph::Edge
     problem.computeActiveErrors();
 
     for (auto& e : eset )
-        if ( dynamic_cast<EdgeSE2*>(e)->chi2() > th )
+        if ( dynamic_cast<EDGE*>(e)->chi2() > th )
             return false;
 
     return true;
 }
+
+template bool isAgreeingWithCurrentState<EdgeSE2>(SparseOptimizer& problem, OptimizableGraph::EdgeSet& eset, double th, int iter_base);
+template bool isAgreeingWithCurrentState<EdgeSE3>(SparseOptimizer& problem, OptimizableGraph::EdgeSet& eset, double th, int iter_base);
+
+/*----------------------------------------------------------------*/
 
 void fixComplementary(SparseOptimizer& problem, int start_id, int end_id)
 {
@@ -36,18 +42,38 @@ void fixComplementary(SparseOptimizer& problem, int start_id, int end_id)
     return;
 }
 
-void propagateCurrentGuess(SparseOptimizer& curr_estimate, int id_start, const vector<EdgeSE2*>& odom)
+/*----------------------------------------------------------------*/
+
+void fixAndFreeInternal(g2o::SparseOptimizer& problem, const std::set<int>& fixv, const std::set<int>& freev)
+{
+    for (auto& id : fixv)
+        problem.vertex(id)->setFixed(true);
+
+    for (auto& id : freev)
+        problem.vertex(id)->setFixed(false);
+
+    return;
+}
+
+/*----------------------------------------------------------------*/
+
+template <class EDGE, class VERTEX>
+void propagateCurrentGuess(SparseOptimizer& curr_estimate, int id_start, const vector<EDGE*>& odom)
 { 
     for ( size_t i = id_start + 1; i <= odom.size() ; ++i )
     {
-        auto v1 = dynamic_cast<VertexSE2*>(curr_estimate.vertex(i - 1));
-        auto v2 = dynamic_cast<VertexSE2*>(curr_estimate.vertex(i));
+        auto v1 = dynamic_cast<VERTEX*>(curr_estimate.vertex(i - 1));
+        auto v2 = dynamic_cast<VERTEX*>(curr_estimate.vertex(i));
         v2->setEstimate(v1->estimate() * odom[i - 1]->measurement());
-
     }
 
     return;
 }
+
+template void propagateCurrentGuess<EdgeSE2, VertexSE2>(SparseOptimizer& curr_estimate, int id_start, const vector<EdgeSE2*>& odom);
+template void propagateCurrentGuess<EdgeSE3, VertexSE3>(SparseOptimizer& curr_estimate, int id_start, const vector<EdgeSE3*>& odom);
+
+/*----------------------------------------------------------------*/
 
 vector<int> getClusterId(const vector<pair<int, int>>& clusters, const pair<int, int>& candidate)
 {
@@ -67,18 +93,21 @@ vector<int> getClusterId(const vector<pair<int, int>>& clusters, const pair<int,
     return clusters_id;
 }
 
-void propagateGuess(SparseOptimizer& voting, int id1, int id2, const vector<EdgeSE2*>& odom)
+/*----------------------------------------------------------------*/
+
+template <class EDGE, class VERTEX>
+void propagateGuess(SparseOptimizer& voting, int id1, int id2, const vector<EDGE*>& odom)
 { 
     // id1 is the gauge and origin of the voting system
-    auto gauge = dynamic_cast<VertexSE2*>(voting.vertex(id1));
+    auto gauge = dynamic_cast<VERTEX*>(voting.vertex(id1));
     gauge->setFixed(true);
-    gauge->setEstimate(SE2(0, 0, 0));
+    gauge->setToOrigin();
 
     // Propagate guess for the vertices in the loop
     for ( size_t i = id1 + 1; i <= id2 ; ++i )
     {
-        auto v1 = dynamic_cast<VertexSE2*>(voting.vertex(i - 1));
-        auto v2 = dynamic_cast<VertexSE2*>(voting.vertex(i));
+        auto v1 = dynamic_cast<VERTEX*>(voting.vertex(i - 1));
+        auto v2 = dynamic_cast<VERTEX*>(voting.vertex(i));
         v2->setFixed(false);
         v2->setEstimate(v1->estimate() * odom[i - 1]->measurement());
     }
@@ -86,10 +115,19 @@ void propagateGuess(SparseOptimizer& voting, int id1, int id2, const vector<Edge
     return;
 }
 
-void robustifyVoters(int id1, int id2, double sqrt_th, vector<EdgeSE2*>& voters)
+template void propagateGuess<EdgeSE2, VertexSE2>(SparseOptimizer& voting, int id1, int id2, const vector<EdgeSE2*>& odom);
+template void propagateGuess<EdgeSE3, VertexSE3>(SparseOptimizer& voting, int id1, int id2, const vector<EdgeSE3*>& odom);
+
+/*----------------------------------------------------------------*/
+
+template <class EDGE>
+void robustifyVoters(int id1, int id2, double s_factor, vector<EDGE*>& voters)
 {
     // Iterating through voters adding robust kernel
     for ( size_t j = id1 ; j < id2; ++j )
-        voters[j]->setInformation(voters[j]->information() * 10);
+        voters[j]->setInformation(voters[j]->information() * s_factor);
     return;
 }
+
+template void robustifyVoters<EdgeSE2>(int id1, int id2, double s_factor, vector<EdgeSE2*>& voters);
+template void robustifyVoters<EdgeSE3>(int id1, int id2, double s_factor, vector<EdgeSE3*>& voters);
