@@ -44,6 +44,19 @@ void fixComplementary(SparseOptimizer& problem, int start_id, int end_id)
 
 /*----------------------------------------------------------------*/
 
+void fixAndFreeInternal(g2o::SparseOptimizer& problem, const std::set<int>& fixv, const std::set<int>& freev)
+{
+    for (auto& id : fixv)
+        problem.vertex(id)->setFixed(true);
+
+    for (auto& id : freev)
+        problem.vertex(id)->setFixed(false);
+
+    return;
+}
+
+/*----------------------------------------------------------------*/
+
 template <class EDGE, class VERTEX>
 void propagateCurrentGuess(SparseOptimizer& curr_estimate, int id_start, const vector<EDGE*>& odom)
 { 
@@ -108,13 +121,13 @@ template void propagateGuess<EdgeSE3, VertexSE3>(SparseOptimizer& voting, int id
 /*----------------------------------------------------------------*/
 
 template <class EDGE>
-void robustifyVoters(int id1, int id2, double sqrt_th, vector<EDGE*>& voters)
+void robustifyVoters(int id1, int id2, double s_factor, vector<EDGE*>& voters)
 {
     // Iterating through voters adding robust kernel
     for ( size_t j = id1 ; j < id2; ++j )
-        voters[j]->setInformation(voters[j]->information() * 10);
+        voters[j]->setInformation(voters[j]->information() * s_factor);
     return;
 }
 
-template void robustifyVoters<EdgeSE2>(int id1, int id2, double sqrt_th, vector<EdgeSE2*>& voters);
-template void robustifyVoters<EdgeSE3>(int id1, int id2, double sqrt_th, vector<EdgeSE3*>& voters);
+template void robustifyVoters<EdgeSE2>(int id1, int id2, double s_factor, vector<EdgeSE2*>& voters);
+template void robustifyVoters<EdgeSE3>(int id1, int id2, double s_factor, vector<EdgeSE3*>& voters);

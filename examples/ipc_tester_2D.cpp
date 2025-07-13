@@ -28,7 +28,7 @@ int main(int argc, char** argv)
 
   vector<EdgeSE2*> loops, odom_edges;
   splitProblemConstraints<EdgeSE2>(optimizer, odom_edges, loops);
-
+  
   simulating_incremental_data<Eigen::Isometry2d, EdgeSE2, VertexSE2>(cfg, optimizer, loops);
 
   return 0;

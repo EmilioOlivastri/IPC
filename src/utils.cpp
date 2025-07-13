@@ -322,6 +322,7 @@ void readConfig(const string& cfg_filepath, Config& out_cfg)
     out_cfg.dataset = config["dataset"].as<string>();
     out_cfg.ground_truth = config["ground_truth"].as<string>();
     out_cfg.output = config["output"].as<string>();
+    out_cfg.s_factor = config["s_factor"].as<double>();
     out_cfg.visualize = config["visualize"].as<int>() == 1 ? true : false;
     out_cfg.canonic_inliers = config["canonic_inliers"].as<int>();
     out_cfg.fast_reject_th = config["fast_reject_th"].as<double>();
@@ -346,6 +347,9 @@ void printProgress(double percentage)
 
 bool cmpFirst(pair<int, int> p1, pair<int, int> p2)
 {
+    if (p1.first == p2.first)
+        return (p1.second < p2.second);
+
     return (p1.first < p2.first);
 }
 
@@ -376,3 +380,21 @@ bool cmpTime(pair<int, OptimizableGraph::Edge*> p1, pair<int, OptimizableGraph::
 
     return (id1_max < id2_max);
 }
+
+template <class EDGE>
+bool cmpEdgeContLow(EdgeContainer<EDGE>* ec1, EdgeContainer<EDGE>* ec2)
+{
+    return (ec1->id_low < ec2->id_low);
+}
+
+template bool cmpEdgeContLow<EdgeSE2>(EdgeContainer<EdgeSE2>* ec1, EdgeContainer<EdgeSE2>* ec2);
+template bool cmpEdgeContLow<EdgeSE3>(EdgeContainer<EdgeSE3>* ec1, EdgeContainer<EdgeSE3>* ec2);
+
+template <class EDGE>
+bool cmpEdgeContHigh(EdgeContainer<EDGE>* ec1, EdgeContainer<EDGE>* ec2)
+{
+    return (ec1->id_high < ec2->id_high);
+}
+
+template bool cmpEdgeContHigh<EdgeSE2>(EdgeContainer<EdgeSE2>* ec1, EdgeContainer<EdgeSE2>* ec2);
+template bool cmpEdgeContHigh<EdgeSE3>(EdgeContainer<EdgeSE3>* ec1, EdgeContainer<EdgeSE3>* ec2);

@@ -12,6 +12,7 @@ void simulating_incremental_data(const Config& cfg,
 
     vector<T> poses_gt;
     readSolutionFile(poses_gt, cfg.ground_truth);
+    double s_factor = cfg.s_factor;
     
     // 0 = outliers | 1 = inliers    
     int tot_hypothesis = loops.size();    
@@ -28,6 +29,7 @@ void simulating_incremental_data(const Config& cfg,
     // Simulating incremental addition of edges
     double avg_time = 0.0;
     cout << "Starting simulation of incremental dataset -> Displaying relative status : " << endl;
+    cout << "S = " << s_factor << " | TH = " << cfg.fast_reject_th << endl;
     for ( size_t candidate_id = 0 ; candidate_id < tot_hypothesis ; ++candidate_id )
     {
         chrono::steady_clock::time_point begin = chrono::steady_clock::now();
@@ -50,17 +52,11 @@ void simulating_incremental_data(const Config& cfg,
 
     OptimizableGraph::EdgeSet eset_gl;
     for ( size_t i = 0 ; i < odom_edges.size(); eset_gl.insert(odom_edges[i++]) )
-        odom_edges[i]->setInformation(odom_edges[i]->information() * 0.1);
+        odom_edges[i]->setInformation(odom_edges[i]->information() / s_factor);
     for ( size_t i = 0 ; i < gt_loops.size(); ++i )
         if ( bucket[i] == 1 )
             eset_gl.insert(gt_loops[i].second);
 
-    if ( cfg.use_recovery )
-    {
-        cout << "Starting Recovery Procedure" << endl;
-        ipc.recoverySC(bucket, sorted_loops);
-        cout << "Recovery Procedure Completed" << endl;
-    }
 
     open_loop_problem.initializeOptimization(eset_gl);
 
@@ -88,10 +84,13 @@ void simulating_incremental_data(const Config& cfg,
 
     for ( size_t counter = 0 ; counter < clusters.size() ; ++counter )    
         cout << "L("<< counter << ") = [" << clusters[counter].first << ", " << clusters[counter].second << "]\n";
+    int size_max_consensus = 0;
+    for ( size_t counter = 0 ; counter < gt_loops.size() ; size_max_consensus += bucket[counter++] );
+    cout << "Size of MAX consistent set = " << size_max_consensus << endl;
+
     cout << "Avg Time x test = " << avg_time / tot_hypothesis << " [s]\n";
     cout << "Precision = " << precision << endl;        
-    cout << "Recall = " << recall << endl;        
-    cout << "Size of MAX consistent set = " << max_consensus_set.size() << endl;
+    cout << "Recall = " << recall << endl;
 
     ofstream outfile;
     outfile.open(cfg.output.c_str()); 
@@ -106,7 +105,7 @@ void simulating_incremental_data(const Config& cfg,
     string out2 = cfg.output.substr(0, cfg.output.size() - 3) + "PR";
     outfile.open(out2.c_str());
     outfile << precision << " " << recall << endl;
-    outfile << dt << endl;
+    outfile << avg_time << " " << avg_time / tot_hypothesis << endl;
     outfile.close();
 
     return;
@@ -127,10 +126,13 @@ IPC<EDGE, VERTEX>::IPC(g2o::SparseOptimizer& open_loop_problem, const Config& cf
     _problem = &open_loop_problem;
     getProblemOdom<EDGE>(*_problem, _odom_edges);
 
+    std::sort(_odom_edges.begin(), _odom_edges.end(), cmpEdgesID);
+
     // Robustify simple voters --> only once
+    _s_factor = cfg.s_factor;
     double th = cfg.fast_reject_th;
     double sqrt_th = sqrt(th);
-    robustifyVoters<EDGE>(0, _odom_edges.size(), sqrt_th, _odom_edges);
+    robustifyVoters<EDGE>(0, _odom_edges.size(), _s_factor, _odom_edges);
 
     propagateGuess<EDGE, VERTEX>(*_problem, 0, _odom_edges.size(), _odom_edges);
     
@@ -145,10 +147,6 @@ IPC<EDGE, VERTEX>::IPC(g2o::SparseOptimizer& open_loop_problem, const Config& cf
     _fast_reject_iter_base = cfg.fast_reject_iter_base;
     _slow_reject_th = cfg.slow_reject_th;
     _slow_reject_iter_base = cfg.slow_reject_iter_base;
-    _use_best_k_buddies = cfg.use_best_k_buddies;
-    _k_buddies = _use_best_k_buddies ? cfg.k_buddies : -1;
-
-    _use_recovery = true;
 }
 
 template <class EDGE, class VERTEX> 
@@ -165,8 +163,11 @@ template <class EDGE, class VERTEX>
 bool IPC<EDGE, VERTEX>::agreementCheck(EDGE* loop_candidate)
 {
     // Start & End Idx of Simple Loop
-    int id1 = loop_candidate->vertices()[0]->id();
-    int id2 = loop_candidate->vertices()[1]->id();
+    int v1_id = loop_candidate->vertices()[0]->id();
+    int v2_id = loop_candidate->vertices()[1]->id();
+    int id1 = min(v1_id, v2_id);
+    int id2 = max(v1_id, v2_id);
+
     pair<int, int> candidate(id1, id2);
     vector<int> vcl_id = getClusterId(_clusters, candidate);
     
@@ -200,7 +201,7 @@ bool IPC<EDGE, VERTEX>::agreementCheck(EDGE* loop_candidate)
             return true;
         }
     }
-    
+        
     // If the loop connects more clusters, then use the measurments from those clusters
     OptimizableGraph::EdgeSet eset, eset_loops, test;
 
@@ -240,21 +241,7 @@ bool IPC<EDGE, VERTEX>::agreementCheck(EDGE* loop_candidate)
 
     int start = new_cl_start;
     int end = new_cl_end;
-    if ( _use_best_k_buddies )
-    {
-        // Compute the top K buddies
-        pair<int, int> clust_buddy = getTopKVoters(candidate, eset_loops, _k_buddies, test);
-        
-        // Just voting set edges, adding the odometry ones
-        for ( size_t idx = clust_buddy.first; idx < clust_buddy.second; test.insert(_odom_edges[idx++]));
-
-        // Compute new cluster extremes
-        start = clust_buddy.first;
-        end = clust_buddy.second;
-
-        test.insert(loop_candidate);
-    }
-    else test = eset;
+    test = eset;
 
     fixComplementary(*_problem, start, end);
     eset_loops.insert(loop_candidate);
@@ -310,65 +297,170 @@ bool IPC<EDGE, VERTEX>::agreementCheck(EDGE* loop_candidate)
         
 }
 
-
-template <class EDGE, class VERTEX> 
-double IPC<EDGE, VERTEX>::iou(const pair<int, int>& lp1, const pair<int, int>& lp2)
+template <class EDGE, class VERTEX>
+bool IPC<EDGE, VERTEX>::removeEdgeFromCnS(EDGE* edge)
 {
-    // Start & End Idx of lp1
-    int id1_st = lp1.first;
-    int id1_end = lp1.second;
+    // FIND CLUSTER OF BELONGING
+    int v1_id = edge->vertices()[0]->id();
+    int v2_id = edge->vertices()[1]->id();
+    int id_src = min(v1_id, v2_id);
+    int id_dst = max(v1_id, v2_id);
 
-    // Start & End Idx of lp2
-    int id2_st = lp2.first;
-    int id2_end =lp2.second;
+    pair<int, int> candidate(id_src, id_dst);
+    vector<int> vcl_id = getClusterId(_clusters, candidate);
 
-    // Compute union
-    int union_st = id1_st < id2_st ? id1_st : id2_st;
-    int union_end = id1_end > id2_end ? id1_end : id2_end;
+    // When removing an edge, the cluster is only 1 for sure
+    int clust_id = vcl_id[0];
+    pair<int, int> clust_ext = _clusters[clust_id];
+    _edgesxcl_only_loops[clust_id].erase(edge);
+    _edgesxcl[clust_id].erase(edge);
 
-    // Compute intersection
-    int intersection_st = id1_st > id2_st ? id1_st : id2_st;
-    int intersection_end = id1_end < id2_end ? id1_end : id2_end;
+    /**/
+    if ( _edgesxcl[clust_id].size() == 0 )
+    {
+        _clusters.erase(_clusters.begin() + clust_id);
+        _edgesxcl.erase(_edgesxcl.begin() + clust_id);
+        _edgesxcl_only_loops.erase(_edgesxcl_only_loops.begin() + clust_id);
+        return true;
+    }
 
-    // Compute IoU (if negative no intersection)
-    double iou = (double)(intersection_end - intersection_st) / (double)(union_end - union_st);
-    iou = iou < 0.0 ? 0.0 : iou;
+    // Estimate new cluster extremes
+    int new_cl_start = INT_MAX;
+    int new_cl_end = -1;
+    for (const auto& el : _edgesxcl_only_loops[clust_id])
+    {
+        int v1_id = el->vertices()[0]->id();
+        int v2_id = el->vertices()[1]->id();
+        new_cl_start = min(new_cl_start, min(v1_id, v2_id));
+        new_cl_end = max(new_cl_end, max(v1_id, v2_id));
+    }
+    _clusters[clust_id].first = new_cl_start;
+    _clusters[clust_id].second = new_cl_end;
 
-    return iou;
+    // Removing extra odom edges to the left and to the right
+    if ( new_cl_start > clust_ext.first )
+        for ( size_t idx = clust_ext.first ; idx < new_cl_start; _edgesxcl[clust_id].erase(_odom_edges[idx++]) );
+
+    if ( new_cl_end < clust_ext.second )
+        for ( size_t idx = new_cl_end ; idx < clust_ext.second; _edgesxcl[clust_id].erase(_odom_edges[idx++]) );
+
+    return true;
 }
 
 
-template <class EDGE, class VERTEX> 
-pair<int, int> IPC<EDGE, VERTEX>::getTopKVoters(const pair<int, int>& candidate, 
-                                                const OptimizableGraph::EdgeSet& eset_loops,
-                                                int k, OptimizableGraph::EdgeSet& voters)
+template bool IPC<EdgeSE2, VertexSE2>::removeEdgeFromCnS(EdgeSE2* edge);
+template bool IPC<EdgeSE3, VertexSE3>::removeEdgeFromCnS(EdgeSE3* edge);
+
+
+template <class EDGE, class VERTEX>
+bool IPC<EDGE, VERTEX>::addEdgeToCnS(EDGE* edge)
 {
-    // Assuring the the voters set is empty
-    voters.clear();
+    // FIND CLUSTER OF BELONGING
+    int v1_id = edge->vertices()[0]->id();
+    int v2_id = edge->vertices()[1]->id();
+    int id_src = min(v1_id, v2_id);
+    int id_dst = max(v1_id, v2_id);
 
-    // Compute IoU for all the voters
-    vector<pair<double, OptimizableGraph::Edge*>> score_vec;
-    for ( const auto& vt_loop : eset_loops )
+    pair<int, int> candidate(id_src, id_dst);
+    vector<int> vcl_id = getClusterId(_clusters, candidate);
+
+    OptimizableGraph::EdgeSet eset, eset_loops;
+
+    // Case it needs a new cluster (unlikely)
+    if (vcl_id.size() == 0)
     {
-        // Compute IoU
-        pair<int, int> vt_pair(vt_loop->vertices()[0]->id(), 
-                               vt_loop->vertices()[1]->id());
+        for ( size_t j = id_src ; j < id_dst; eset.insert(_odom_edges[j++]) );
+        eset.insert(edge);
 
-        double score = iou(candidate, vt_pair);
-        score_vec.push_back(make_pair(score, dynamic_cast<OptimizableGraph::Edge*>(vt_loop)));
+        _clusters.push_back(candidate);
+        _edgesxcl.push_back(eset);
+        eset_loops.insert(edge);
+        _edgesxcl_only_loops.push_back(eset_loops);
+        
+        return true;
     }
 
-    // Extract the top K voters or the first ones that have IoU > 0.0
-    sort(score_vec.begin(), score_vec.end(), cmpScores);
-    int min_k = min(k, (int)score_vec.size());
-    
-    pair<int, int> cluster = candidate;
-    for ( int idx = 0 ; idx < min_k && score_vec[idx].first > 0.0; ++idx )
+    if ( vcl_id.size() == 1 )
     {
-        voters.insert(score_vec[idx].second);
-        cluster.first = min(cluster.first, score_vec[idx].second->vertices()[0]->id());
-        cluster.second = max(cluster.second, score_vec[idx].second->vertices()[1]->id());
+        // Adding extra odom edges to the left and to the right
+        int clust_id = vcl_id[0];
+        pair<int, int> clust_ext = _clusters[clust_id];
+
+        for ( size_t idx = candidate.first ; idx < clust_ext.first; _edgesxcl[clust_id].insert(_odom_edges[idx++]) );
+        for ( size_t idx = clust_ext.second ; idx < candidate.second ; _edgesxcl[clust_id].insert(_odom_edges[idx++]) );
+
+        _clusters[clust_id].first = candidate.first < clust_ext.first ? candidate.first : clust_ext.first;
+        _clusters[clust_id].second = candidate.second > clust_ext.second ? candidate.second : clust_ext.second;
+        _edgesxcl_only_loops[clust_id].insert(edge);
+        _edgesxcl[clust_id].insert(edge);
+        _max_consensus_set.push_back(candidate);
+
+        return true;
     }
 
-    return cluster;    
+    /**/
+    if ( vcl_id.size() > 1 )
+    {
+        // Case it needs to add to an existing cluster
+        // If the loop connects more clusters, then use the measurments from those clusters
+        vector<pair<int, int>> sorted_intersect_clust;
+        for ( size_t idx = 0; idx < vcl_id.size(); ++idx )
+        {
+            sorted_intersect_clust.push_back(_clusters[vcl_id[idx]]);
+            eset.insert(_edgesxcl[vcl_id[idx]].begin(), _edgesxcl[vcl_id[idx]].end());
+            eset_loops.insert(_edgesxcl_only_loops[vcl_id[idx]].begin(), _edgesxcl_only_loops[vcl_id[idx]].end());
+        }
+        sort(sorted_intersect_clust.begin(), sorted_intersect_clust.end(), cmpSecond);
+
+        // Adding odom edges between connected clusters
+        for ( size_t idx = 0; idx < sorted_intersect_clust.size() - 1; ++idx )
+            for ( size_t j = sorted_intersect_clust[idx].second ; j < sorted_intersect_clust[idx + 1].first; eset.insert(_odom_edges[j++]) );
+
+        // New cluster beggining/ending
+        int new_cl_start = sorted_intersect_clust[0].first;
+        int new_cl_end = sorted_intersect_clust[sorted_intersect_clust.size() - 1].second;
+
+        for ( size_t idx = candidate.first ; idx < new_cl_start; eset.insert(_odom_edges[idx++]) );
+        for ( size_t idx = new_cl_end ; idx < candidate.second ; eset.insert(_odom_edges[idx++]) );
+
+        // Compute new cluster extremes
+        new_cl_start = new_cl_start < candidate.first ? new_cl_start : candidate.first;
+        new_cl_end = new_cl_end > candidate.second ? new_cl_end : candidate.second;
+
+        // Finally! Adding new_candidate edge!!
+        eset.insert(edge);
+        eset_loops.insert(edge);
+        _max_consensus_set.push_back(candidate);
+
+        vector<pair<int, int>> clusters_tmp;
+        vector<OptimizableGraph::EdgeSet> edgesxcl_tmp;
+        vector<OptimizableGraph::EdgeSet> edgesxcl_only_loops_tmp;
+
+        for ( size_t cidx = 0; cidx < _clusters.size(); ++cidx )
+        {
+            // Check if out of the extremes of the cluster
+            bool out_right = _clusters[cidx].second <= new_cl_start ? true : false;
+            bool out_left = _clusters[cidx].first >= new_cl_end ? true : false;
+
+            if ( !(out_right || out_left) ) continue;
+
+            // Adding if independent
+            clusters_tmp.push_back(_clusters[cidx]);
+            edgesxcl_tmp.push_back(_edgesxcl[cidx]);
+            edgesxcl_only_loops_tmp.push_back(_edgesxcl_only_loops[cidx]);
+        }
+        _clusters = clusters_tmp;
+        _edgesxcl = edgesxcl_tmp;
+        _edgesxcl_only_loops = edgesxcl_only_loops_tmp;
+
+        _clusters.push_back(make_pair(new_cl_start, new_cl_end));
+        _edgesxcl.push_back(eset);
+        _edgesxcl_only_loops.push_back(eset_loops);
+    }
+    /**/
+
+    return false;
 }
+
+template bool IPC<EdgeSE2, VertexSE2>::addEdgeToCnS(EdgeSE2* edge);
+template bool IPC<EdgeSE3, VertexSE3>::addEdgeToCnS(EdgeSE3* edge);

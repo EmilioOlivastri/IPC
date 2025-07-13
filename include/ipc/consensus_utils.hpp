@@ -20,6 +20,15 @@ Method that fixes the vertices that do not participate to the optimization.
 */
 void fixComplementary(g2o::SparseOptimizer& problem, int start_id, int end_id);
 
+/*
+Method that fixes the vertices that do not participate to the optimization and frees
+the ones that do. (Case internal at minmal path)
+@ param problem  : problem that needs to be solved/optimized;
+@ param freev : vertices to be freed;
+@ param fixv : vertices to be fixed;
+*/
+void fixAndFreeInternal(g2o::SparseOptimizer& problem, const std::set<int>& fixv, const std::set<int>& freev);
+
 
 /*
 Method that propagates the current estimate to the rest of the problem.
@@ -53,9 +62,8 @@ void propagateGuess(g2o::SparseOptimizer& graph, int id1, int id2, const std::ve
 Method increases the weight of the odometry edges partecipating to the optimization.
 @ param id1 : starting vertex id of the subgraph;
 @ param id2 : ending vertex id of the subgraph;
-@ param sqrt_th : threshold for the Chi-Squared Test;
+@ param s_factor : scaling factor for the weight;
 @ param voters : edges that partecipate to the optimization;
-@ return val : true if agree, false if not agree;
 */
 template <class EDGE>
-void robustifyVoters(int id1, int id2, double sqrt_th, std::vector<EDGE*>& voters);
+void robustifyVoters(int id1, int id2, double s_factor, std::vector<EDGE*>& voters);

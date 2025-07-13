@@ -5,6 +5,8 @@
 #include <random>
 #include <chrono>
 #include <vector>
+#include <map>
+#include <set>
 #include <algorithm>
 
 #include <Eigen/Core>
@@ -25,6 +27,7 @@ struct Config
   std::string output;
   bool visualize;
   int canonic_inliers;
+  double s_factor;
   double fast_reject_th;
   int fast_reject_iter_base;
   double slow_reject_th;
@@ -34,6 +37,13 @@ struct Config
   bool use_recovery;
 };
 
+template <class EDGE>
+struct EdgeContainer
+{
+	int id_high;
+	int id_low;
+	EDGE* edge;
+};
 
 // Using edges to initialize graph
 template <class EDGE, class VERTEX>
@@ -100,3 +110,11 @@ bool cmpScores(std::pair<double, g2o::OptimizableGraph::Edge*> p1,
                std::pair<double, g2o::OptimizableGraph::Edge*> p2);
 bool cmpTime(std::pair<int, g2o::OptimizableGraph::Edge*> p1, 
              std::pair<int, g2o::OptimizableGraph::Edge*> p2);
+
+
+// New functions
+template <class EDGE>
+bool cmpEdgeContLow(EdgeContainer<EDGE>* ec1, EdgeContainer<EDGE>* ec2);
+
+template <class EDGE>
+bool cmpEdgeContHigh(EdgeContainer<EDGE>* ec1, EdgeContainer<EDGE>* ec2);

@@ -1,5 +1,5 @@
 name : "SPHERE"
-dataset : "/home/slam-emix/Datasets/BACK_END/3D/SPHERE/graph.g2o"
+dataset : "/home/slam-emix/Datasets/BACK_END/3D/SPHERE/SPOILED_DATA/10/00.g2o"
 ground_truth : "/home/slam-emix/Datasets/BACK_END/3D/SPHERE/GT.txt"
 output : "res.txt"
 visualize : 0
