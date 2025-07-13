@@ -19,7 +19,6 @@ include_directories(
   ${G2O_INCLUDE_DIR}
   ${YAML_CPP_INCLUDE_DIR}
   ${GLOG_INCLUDE_DIR}/glog
-  thirdParty
 )
 
 add_executable(ipc_tester_2D
@@ -27,6 +26,7 @@ examples/ipc_tester_2D.cpp
 src/utils.cpp
 src/consensus_utils.cpp
 src/consensus.cpp
+src/simulation.cpp
 )
 
 target_link_libraries(ipc_tester_2D
@@ -46,6 +46,7 @@ examples/ipc_tester_3D.cpp
 src/utils.cpp
 src/consensus_utils.cpp
 src/consensus.cpp
+src/simulation.cpp
 )
 
 target_link_libraries(ipc_tester_3D
