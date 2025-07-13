@@ -201,7 +201,6 @@ bool IPC<EDGE, VERTEX>::removeEdgeFromCnS(EDGE* edge)
     _edgesxcl_only_loops[clust_id].erase(edge);
     _edgesxcl[clust_id].erase(edge);
 
-    /**/
     if ( _edgesxcl[clust_id].size() == 0 )
     {
         _clusters.erase(_clusters.begin() + clust_id);
@@ -279,7 +278,6 @@ bool IPC<EDGE, VERTEX>::addEdgeToCnS(EDGE* edge)
         return true;
     }
 
-    /**/
     if ( vcl_id.size() > 1 )
     {
         // Case it needs to add to an existing cluster
@@ -338,7 +336,6 @@ bool IPC<EDGE, VERTEX>::addEdgeToCnS(EDGE* edge)
         _edgesxcl.push_back(eset);
         _edgesxcl_only_loops.push_back(eset_loops);
     }
-    /**/
 
     return false;
 }
