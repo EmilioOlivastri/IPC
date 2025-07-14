@@ -80,14 +80,9 @@ void simulating_incremental_data(const Config& cfg,
     float precision = tp / (float)(tp + fp);
     float recall = tp / (float)(tp + fn);
 
-    const vector<pair<int, int>> clusters = ipc.getClusters();
-    const vector<pair<int, int>> max_consensus_set = ipc.getMaxConsensusSet();
-
-    for ( size_t counter = 0 ; counter < clusters.size() ; ++counter )    
-        cout << "L("<< counter << ") = [" << clusters[counter].first << ", " << clusters[counter].second << "]\n";
-    int size_max_consensus = 0;
-    for ( size_t counter = 0 ; counter < gt_loops.size() ; size_max_consensus += bucket[counter++] );
-    cout << "Size of MAX consistent set = " << size_max_consensus << endl;
+    //const vector<pair<int, int>> clusters = ipc.getClusters();
+    const vector<EDGE*> max_consensus_set = ipc.getMaxConsensusSet();
+    cout << "Size of MAX consistent set = " << max_consensus_set.size() << endl;
 
     cout << "Avg Time x test = " << avg_time / tot_hypothesis << " [s]\n";
     cout << "Precision = " << precision << endl;        

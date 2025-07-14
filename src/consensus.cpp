@@ -25,9 +25,6 @@ IPC<EDGE, VERTEX>::IPC(g2o::SparseOptimizer& open_loop_problem, const Config& cf
     store<VERTEX>(*_problem);
 
     _max_consensus_set.clear();
-    _clusters.clear();
-    _edgesxcl.clear();
-    _edgesxcl_only_loops.clear();
 
     _fast_reject_th = cfg.fast_reject_th;
     _fast_reject_iter_base = cfg.fast_reject_iter_base;
@@ -40,144 +37,38 @@ IPC<EDGE, VERTEX>::~IPC()
 {
     _problem->clear();
     _max_consensus_set.clear();
-    _clusters.clear();
-    _edgesxcl.clear();
-    _edgesxcl_only_loops.clear();
 }
 
 template <class EDGE, class VERTEX>
 bool IPC<EDGE, VERTEX>::agreementCheck(EDGE* loop_candidate)
 {
-    // Start & End Idx of Simple Loop
-    int v1_id = loop_candidate->vertices()[0]->id();
-    int v2_id = loop_candidate->vertices()[1]->id();
-    int id1 = min(v1_id, v2_id);
-    int id2 = max(v1_id, v2_id);
+    // Estimate the independent subgraph given the loop candidate
+    OptimizableGraph::EdgeSet eset_independent;
+    pair<int, int> clust_ext = computeIndependentSubgraph(*loop_candidate, eset_independent);
 
-    pair<int, int> candidate(id1, id2);
-    vector<int> vcl_id = getClusterId(_clusters, candidate);
+    // eset_independent.size() == 0 --> no intersection found
+    bool intersection_found = (eset_independent.size() > 0);
+    double reject_th = intersection_found ? _slow_reject_th : _fast_reject_th;
+    int reject_iter_base = intersection_found ? _slow_reject_iter_base : _fast_reject_iter_base;
     
-    // No intersection found, creation of new cluster
-    if ( vcl_id.size() == 0 )
-    {
-        // Adding the reliable voters
-        OptimizableGraph::EdgeSet eset, eset_loop;
-        for ( size_t j = id1 ; j < id2; eset.insert(_odom_edges[j++]) );
-        eset.insert(loop_candidate);
-
-        // Generate map hypothesis closed-loop subproblem
-        store<VERTEX>(*_problem);
-        fixComplementary(*_problem, id1, id2);
-
-        if (!isAgreeingWithCurrentState<EDGE>(*_problem, eset, _fast_reject_th, _fast_reject_iter_base))
-        {
-            restore<VERTEX>(*_problem);
-            return false;
-        }
-        else
-        {
-            discard<VERTEX>(*_problem);
-            _clusters.push_back(candidate);
-            _edgesxcl.push_back(eset);
-            eset_loop.insert(loop_candidate);
-            _edgesxcl_only_loops.push_back(eset_loop);
-            _max_consensus_set.push_back(candidate);
-            propagateCurrentGuess<EDGE, VERTEX>(*_problem, id2, _odom_edges);
-
-            return true;
-        }
-    }
-        
-    // If the loop connects more clusters, then use the measurments from those clusters
-    OptimizableGraph::EdgeSet eset, eset_loops, test;
-
-    // Create a fake vertex for sorting the clusters & fusing cluster edges
-    vector<pair<int, int>> sorted_intersect_clust;
-    for ( size_t idx = 0; idx < vcl_id.size(); ++idx )
-    {
-        sorted_intersect_clust.push_back(_clusters[vcl_id[idx]]);
-        eset.insert(_edgesxcl[vcl_id[idx]].begin(), _edgesxcl[vcl_id[idx]].end());
-        eset_loops.insert(_edgesxcl_only_loops[vcl_id[idx]].begin(), _edgesxcl_only_loops[vcl_id[idx]].end());
-    }
-    sort(sorted_intersect_clust.begin(), sorted_intersect_clust.end(), cmpSecond);
-
-    // Adding odom edges between connected clusters
-    for ( size_t idx = 0; idx < sorted_intersect_clust.size() - 1; ++idx )
-        for ( size_t j = sorted_intersect_clust[idx].second ; j < sorted_intersect_clust[idx + 1].first; eset.insert(_odom_edges[j++]) );
-
-    // New cluster beggining/ending
-    int new_cl_start = sorted_intersect_clust[0].first;
-    int new_cl_end = sorted_intersect_clust[sorted_intersect_clust.size() - 1].second;
-
-    // Adding extra odom edges to the left and to the right
-    for ( size_t idx = candidate.first ; idx < new_cl_start; eset.insert(_odom_edges[idx++]) );
-    for ( size_t idx = new_cl_end ; idx < candidate.second ; eset.insert(_odom_edges[idx++]) );
-
-    // Compute new cluster extremes
-    new_cl_start = new_cl_start < candidate.first ? new_cl_start : candidate.first;
-    new_cl_end = new_cl_end > candidate.second ? new_cl_end : candidate.second;
-
-    // Finally! Adding new_candidate edge!!
-    eset.insert(loop_candidate);
-    if ( vcl_id.size() > 1 )
-        propagateGuess<EDGE, VERTEX>(*_problem, 0, _odom_edges.size(), _odom_edges);
+    // Adding the reliable voters
+    for ( size_t j = clust_ext.first ; j < clust_ext.second; eset_independent.insert(_odom_edges[j++]) );
+    eset_independent.insert(loop_candidate);
 
     // Generate map hypothesis closed-loop subproblem
     store<VERTEX>(*_problem);
+    fixComplementary(*_problem, clust_ext.first, clust_ext.second);
 
-    int start = new_cl_start;
-    int end = new_cl_end;
-    test = eset;
-
-    fixComplementary(*_problem, start, end);
-    eset_loops.insert(loop_candidate);
-
-    if (!isAgreeingWithCurrentState<EDGE>(*_problem, test, 
-                                           _slow_reject_th, 
-                                           _slow_reject_iter_base))
+    bool is_agreeing = isAgreeingWithCurrentState<EDGE>(*_problem, eset_independent, reject_th, reject_iter_base);
+    if (!is_agreeing)
     {
         restore<VERTEX>(*_problem);
         return false;
     }
-    
-    discard<VERTEX>(*_problem);            
-    _max_consensus_set.push_back(candidate);
-    propagateCurrentGuess<EDGE, VERTEX>(*_problem, start, _odom_edges);
 
-    if ( vcl_id.size() > 1 )
-    {
-        vector<pair<int, int>> clusters_tmp;
-        vector<OptimizableGraph::EdgeSet> edgesxcl_tmp;
-        vector<OptimizableGraph::EdgeSet> edgesxcl_only_loops_tmp;
-
-        for ( size_t cidx = 0; cidx < _clusters.size(); ++cidx )
-        {
-            // Check if out of the extremes of the cluster
-            bool out_right = _clusters[cidx].second <= new_cl_start ? true : false;
-            bool out_left = _clusters[cidx].first >= new_cl_end ? true : false;
-
-            if ( !(out_right || out_left) ) continue;
-
-            // Adding if independent
-            clusters_tmp.push_back(_clusters[cidx]);
-            edgesxcl_tmp.push_back(_edgesxcl[cidx]);
-            edgesxcl_only_loops_tmp.push_back(_edgesxcl_only_loops[cidx]);
-        }
-        _clusters = clusters_tmp;
-        _edgesxcl = edgesxcl_tmp;
-        _edgesxcl_only_loops = edgesxcl_only_loops_tmp;
-
-        _clusters.push_back(make_pair(new_cl_start, new_cl_end));
-        _edgesxcl.push_back(eset);
-        _edgesxcl_only_loops.push_back(eset_loops);
-    }
-    else 
-    {
-        _clusters[vcl_id[0]].first = new_cl_start;
-        _clusters[vcl_id[0]].second = new_cl_end;
-        _edgesxcl[vcl_id[0]] = eset;
-        _edgesxcl_only_loops[vcl_id[0]] = eset_loops;
-    }
+    discard<VERTEX>(*_problem);
+    _max_consensus_set.push_back(loop_candidate);
+    propagateCurrentGuess<EDGE, VERTEX>(*_problem, clust_ext.second, _odom_edges);
 
     return true;
         
@@ -186,158 +77,97 @@ bool IPC<EDGE, VERTEX>::agreementCheck(EDGE* loop_candidate)
 template <class EDGE, class VERTEX>
 bool IPC<EDGE, VERTEX>::removeEdgeFromCnS(EDGE* edge)
 {
-    // FIND CLUSTER OF BELONGING
-    int v1_id = edge->vertices()[0]->id();
-    int v2_id = edge->vertices()[1]->id();
-    int id_src = min(v1_id, v2_id);
-    int id_dst = max(v1_id, v2_id);
-
-    pair<int, int> candidate(id_src, id_dst);
-    vector<int> vcl_id = getClusterId(_clusters, candidate);
-
-    // When removing an edge, the cluster is only 1 for sure
-    int clust_id = vcl_id[0];
-    pair<int, int> clust_ext = _clusters[clust_id];
-    _edgesxcl_only_loops[clust_id].erase(edge);
-    _edgesxcl[clust_id].erase(edge);
-
-    if ( _edgesxcl[clust_id].size() == 0 )
+    // Check if the edge is in the consensus set
+    int v0_id = min(edge->vertices()[0]->id(), edge->vertices()[1]->id());
+    int v1_id = max(edge->vertices()[0]->id(), edge->vertices()[1]->id());
+    for (auto it = _max_consensus_set.begin(); it != _max_consensus_set.end(); ++it)
     {
-        _clusters.erase(_clusters.begin() + clust_id);
-        _edgesxcl.erase(_edgesxcl.begin() + clust_id);
-        _edgesxcl_only_loops.erase(_edgesxcl_only_loops.begin() + clust_id);
+        EDGE* trusty_edge = *it;
+        int vt0_id = min(trusty_edge->vertices()[0]->id(), trusty_edge->vertices()[1]->id());
+        int vt1_id = max(trusty_edge->vertices()[0]->id(), trusty_edge->vertices()[1]->id());
+
+        if (v0_id != vt0_id || v1_id != vt1_id )
+            continue;
+
+        _max_consensus_set.erase(it);
         return true;
-    }
-
-    // Estimate new cluster extremes
-    int new_cl_start = INT_MAX;
-    int new_cl_end = -1;
-    for (const auto& el : _edgesxcl_only_loops[clust_id])
-    {
-        int v1_id = el->vertices()[0]->id();
-        int v2_id = el->vertices()[1]->id();
-        new_cl_start = min(new_cl_start, min(v1_id, v2_id));
-        new_cl_end = max(new_cl_end, max(v1_id, v2_id));
-    }
-    _clusters[clust_id].first = new_cl_start;
-    _clusters[clust_id].second = new_cl_end;
-
-    // Removing extra odom edges to the left and to the right
-    if ( new_cl_start > clust_ext.first )
-        for ( size_t idx = clust_ext.first ; idx < new_cl_start; _edgesxcl[clust_id].erase(_odom_edges[idx++]) );
-
-    if ( new_cl_end < clust_ext.second )
-        for ( size_t idx = new_cl_end ; idx < clust_ext.second; _edgesxcl[clust_id].erase(_odom_edges[idx++]) );
-
-    return true;
-}
-
-template <class EDGE, class VERTEX>
-bool IPC<EDGE, VERTEX>::addEdgeToCnS(EDGE* edge)
-{
-    // FIND CLUSTER OF BELONGING
-    int v1_id = edge->vertices()[0]->id();
-    int v2_id = edge->vertices()[1]->id();
-    int id_src = min(v1_id, v2_id);
-    int id_dst = max(v1_id, v2_id);
-
-    pair<int, int> candidate(id_src, id_dst);
-    vector<int> vcl_id = getClusterId(_clusters, candidate);
-
-    OptimizableGraph::EdgeSet eset, eset_loops;
-
-    // Case it needs a new cluster (unlikely)
-    if (vcl_id.size() == 0)
-    {
-        for ( size_t j = id_src ; j < id_dst; eset.insert(_odom_edges[j++]) );
-        eset.insert(edge);
-
-        _clusters.push_back(candidate);
-        _edgesxcl.push_back(eset);
-        eset_loops.insert(edge);
-        _edgesxcl_only_loops.push_back(eset_loops);
-        
-        return true;
-    }
-
-    if ( vcl_id.size() == 1 )
-    {
-        // Adding extra odom edges to the left and to the right
-        int clust_id = vcl_id[0];
-        pair<int, int> clust_ext = _clusters[clust_id];
-
-        for ( size_t idx = candidate.first ; idx < clust_ext.first; _edgesxcl[clust_id].insert(_odom_edges[idx++]) );
-        for ( size_t idx = clust_ext.second ; idx < candidate.second ; _edgesxcl[clust_id].insert(_odom_edges[idx++]) );
-
-        _clusters[clust_id].first = candidate.first < clust_ext.first ? candidate.first : clust_ext.first;
-        _clusters[clust_id].second = candidate.second > clust_ext.second ? candidate.second : clust_ext.second;
-        _edgesxcl_only_loops[clust_id].insert(edge);
-        _edgesxcl[clust_id].insert(edge);
-        _max_consensus_set.push_back(candidate);
-
-        return true;
-    }
-
-    if ( vcl_id.size() > 1 )
-    {
-        // Case it needs to add to an existing cluster
-        // If the loop connects more clusters, then use the measurments from those clusters
-        vector<pair<int, int>> sorted_intersect_clust;
-        for ( size_t idx = 0; idx < vcl_id.size(); ++idx )
-        {
-            sorted_intersect_clust.push_back(_clusters[vcl_id[idx]]);
-            eset.insert(_edgesxcl[vcl_id[idx]].begin(), _edgesxcl[vcl_id[idx]].end());
-            eset_loops.insert(_edgesxcl_only_loops[vcl_id[idx]].begin(), _edgesxcl_only_loops[vcl_id[idx]].end());
-        }
-        sort(sorted_intersect_clust.begin(), sorted_intersect_clust.end(), cmpSecond);
-
-        // Adding odom edges between connected clusters
-        for ( size_t idx = 0; idx < sorted_intersect_clust.size() - 1; ++idx )
-            for ( size_t j = sorted_intersect_clust[idx].second ; j < sorted_intersect_clust[idx + 1].first; eset.insert(_odom_edges[j++]) );
-
-        // New cluster beggining/ending
-        int new_cl_start = sorted_intersect_clust[0].first;
-        int new_cl_end = sorted_intersect_clust[sorted_intersect_clust.size() - 1].second;
-
-        for ( size_t idx = candidate.first ; idx < new_cl_start; eset.insert(_odom_edges[idx++]) );
-        for ( size_t idx = new_cl_end ; idx < candidate.second ; eset.insert(_odom_edges[idx++]) );
-
-        // Compute new cluster extremes
-        new_cl_start = new_cl_start < candidate.first ? new_cl_start : candidate.first;
-        new_cl_end = new_cl_end > candidate.second ? new_cl_end : candidate.second;
-
-        // Finally! Adding new_candidate edge!!
-        eset.insert(edge);
-        eset_loops.insert(edge);
-        _max_consensus_set.push_back(candidate);
-
-        vector<pair<int, int>> clusters_tmp;
-        vector<OptimizableGraph::EdgeSet> edgesxcl_tmp;
-        vector<OptimizableGraph::EdgeSet> edgesxcl_only_loops_tmp;
-
-        for ( size_t cidx = 0; cidx < _clusters.size(); ++cidx )
-        {
-            // Check if out of the extremes of the cluster
-            bool out_right = _clusters[cidx].second <= new_cl_start ? true : false;
-            bool out_left = _clusters[cidx].first >= new_cl_end ? true : false;
-
-            if ( !(out_right || out_left) ) continue;
-
-            // Adding if independent
-            clusters_tmp.push_back(_clusters[cidx]);
-            edgesxcl_tmp.push_back(_edgesxcl[cidx]);
-            edgesxcl_only_loops_tmp.push_back(_edgesxcl_only_loops[cidx]);
-        }
-        _clusters = clusters_tmp;
-        _edgesxcl = edgesxcl_tmp;
-        _edgesxcl_only_loops = edgesxcl_only_loops_tmp;
-
-        _clusters.push_back(make_pair(new_cl_start, new_cl_end));
-        _edgesxcl.push_back(eset);
-        _edgesxcl_only_loops.push_back(eset_loops);
     }
 
     return false;
+}
+
+template <class EDGE, class VERTEX>
+void IPC<EDGE, VERTEX>::addEdgeToCnS(EDGE* edge)
+{
+    // Check if the edge is already in the consensus set
+    int v0_id = min(edge->vertices()[0]->id(), edge->vertices()[1]->id());
+    int v1_id = max(edge->vertices()[0]->id(), edge->vertices()[1]->id());
+    for (const auto& trusty_edge : _max_consensus_set)
+    {
+        int vt0_id = min(trusty_edge->vertices()[0]->id(), 
+                         trusty_edge->vertices()[1]->id());
+        int vt1_id = max(trusty_edge->vertices()[0]->id(), 
+                         trusty_edge->vertices()[1]->id());
+
+        if (v0_id == vt0_id && v1_id == vt1_id) return;
+    }
+    
+    _max_consensus_set.push_back(edge);
+
+    // Sort the consensus set by vertex ids
+    std::sort(_max_consensus_set.begin(), _max_consensus_set.end(), cmpEdgesTime);
+
+    return;
+}
+
+template <class EDGE, class VERTEX>
+pair<int, int> IPC<EDGE, VERTEX>::computeIndependentSubgraph(const EDGE& edge_candidate,
+                                                             OptimizableGraph::EdgeSet& eset_independent)
+{
+    // Get the vertices ids of the candidate edge
+    int v0_id = min(edge_candidate.vertices()[0]->id(), 
+                    edge_candidate.vertices()[1]->id());
+    int v1_id = max(edge_candidate.vertices()[0]->id(), 
+                    edge_candidate.vertices()[1]->id());
+    pair<int, int> cand(v0_id, v1_id);
+
+    // Initialize the extremes of the independent subgraph using the candidate edge
+    pair<int, int> extremes(cand.first, cand.second);
+
+    // Iterate through the consensus set to check for edge intersections
+    bool found_new_extremes = true;
+    vector<bool> included_edges(_max_consensus_set.size(), false);
+    while (found_new_extremes)
+    {
+        // Check for intersections with the current extremes and skip already included edges
+        found_new_extremes = false;
+
+        for (size_t edge_cidx = 0; edge_cidx < _max_consensus_set.size(); ++edge_cidx)
+        {
+            // If the edge is already included, skip it
+            if (included_edges[edge_cidx]) continue;
+
+            int vt0_id = min(_max_consensus_set[edge_cidx]->vertices()[0]->id(),
+                             _max_consensus_set[edge_cidx]->vertices()[1]->id());
+            int vt1_id = max(_max_consensus_set[edge_cidx]->vertices()[0]->id(),
+                             _max_consensus_set[edge_cidx]->vertices()[1]->id());
+            const auto& trusted_edge = make_pair(vt0_id, vt1_id);
+
+            // Compute intersection with the current extremes
+            int intersection = min(trusted_edge.second, extremes.second) - max(trusted_edge.first, extremes.first);
+            
+            if (intersection <= 0) continue;  // No intersection
+
+            // Update extremes if an intersection is found
+            extremes.first = min(extremes.first, trusted_edge.first);
+            extremes.second = max(extremes.second, trusted_edge.second);
+            included_edges[edge_cidx] = true;
+            found_new_extremes = true;
+            eset_independent.insert(_max_consensus_set[edge_cidx]);
+        }
+    }
+
+    return extremes;
 }
 
 
