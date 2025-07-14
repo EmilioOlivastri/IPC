@@ -43,7 +43,7 @@ void simulating_incremental_data(const Config& cfg,
         chrono::microseconds delta_time = chrono::duration_cast<chrono::microseconds>(end - begin);
         avg_time += delta_time.count() / 1000000.0;
 
-        printProgress((double)(candidate_id + 1) / (double)tot_hypothesis);
+        //printProgress((double)(candidate_id + 1) / (double)tot_hypothesis);
     }
     cout << "\nCompleted!" << endl;
 

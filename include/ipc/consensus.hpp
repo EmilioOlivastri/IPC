@@ -20,6 +20,9 @@ private :
     std::pair<int, int> computeIndependentSubgraph(const EDGE& edge_candidate,
                                                    g2o::OptimizableGraph::EdgeSet& eset_independent);
 
+    std::pair<int, int> getKBestLoops(const EDGE& edge_candidate, 
+                                      g2o::OptimizableGraph::EdgeSet& kbest_edges);
+
     g2o::SparseOptimizer* _problem;
 
     std::vector<EDGE*> _max_consensus_set; 
@@ -30,4 +33,7 @@ private :
     double _slow_reject_th;
     int _slow_reject_iter_base;
     double _s_factor;
+
+    bool _use_best_k_buddies;
+    int _k_buddies;
 };

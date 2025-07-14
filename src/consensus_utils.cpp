@@ -131,3 +131,68 @@ void robustifyVoters(int id1, int id2, double s_factor, vector<EDGE*>& voters)
 
 template void robustifyVoters<EdgeSE2>(int id1, int id2, double s_factor, vector<EdgeSE2*>& voters);
 template void robustifyVoters<EdgeSE3>(int id1, int id2, double s_factor, vector<EdgeSE3*>& voters);
+
+/*----------------------------------------------------------------*/
+template <class EDGE>
+pair<int, int> getOrderedPair(const EDGE* edge)
+{
+    int v0_id = edge->vertices()[0]->id();
+    int v1_id = edge->vertices()[1]->id();
+    return make_pair(min(v0_id, v1_id), max(v0_id, v1_id));
+}
+
+template pair<int, int> getOrderedPair<EdgeSE2>(const EdgeSE2* edge);
+template pair<int, int> getOrderedPair<EdgeSE3>(const EdgeSE3* edge);
+
+/*----------------------------------------------------------------*/
+double intersection_calc(const pair<int, int>& e1, const pair<int, int>& e2)
+{
+    // Start & End Idx of lp1
+    int id1_st = e1.first;
+    int id1_end = e1.second;
+
+    // Start & End Idx of lp2
+    int id2_st = e2.first;
+    int id2_end = e2.second;
+
+    // Compute intersection
+    int intersection_st = id1_st > id2_st ? id1_st : id2_st;
+    int intersection_end = id1_end < id2_end ? id1_end : id2_end;
+
+    return static_cast<double>(intersection_end - intersection_st);
+}
+
+/*----------------------------------------------------------------*/
+double union_calc(const pair<int, int>& e1, const pair<int, int>& e2)
+{
+    // Start & End Idx of lp1
+    int id1_st = e1.first;
+    int id1_end = e1.second;
+
+    // Start & End Idx of lp2
+    int id2_st = e2.first;
+    int id2_end = e2.second;
+
+    // Compute union
+    int union_st = id1_st < id2_st ? id1_st : id2_st;
+    int union_end = id1_end > id2_end ? id1_end : id2_end;
+
+    return static_cast<double>(union_end - union_st);
+}
+
+
+/*----------------------------------------------------------------*/
+double iou_calc(const pair<int, int>& e1, const pair<int, int>& e2)
+{
+    // Compute union
+    double delta_union = union_calc(e1, e2);
+
+    // Compute intersection
+    double delta_intersection = intersection_calc(e1, e2);
+    
+    // Compute IoU (if negative no intersection)
+    double iou = delta_intersection / delta_union;
+    iou = iou < 0.0 ? 0.0 : iou;
+
+    return iou;
+}

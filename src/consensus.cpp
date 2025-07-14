@@ -30,6 +30,9 @@ IPC<EDGE, VERTEX>::IPC(g2o::SparseOptimizer& open_loop_problem, const Config& cf
     _fast_reject_iter_base = cfg.fast_reject_iter_base;
     _slow_reject_th = cfg.slow_reject_th;
     _slow_reject_iter_base = cfg.slow_reject_iter_base;
+
+    _use_best_k_buddies = cfg.use_best_k_buddies;
+    _k_buddies = _use_best_k_buddies ? cfg.k_buddies : -1;
 }
 
 template <class EDGE, class VERTEX> 
@@ -44,7 +47,8 @@ bool IPC<EDGE, VERTEX>::agreementCheck(EDGE* loop_candidate)
 {
     // Estimate the independent subgraph given the loop candidate
     OptimizableGraph::EdgeSet eset_independent;
-    pair<int, int> clust_ext = computeIndependentSubgraph(*loop_candidate, eset_independent);
+    pair<int, int> clust_ext =  _use_best_k_buddies ? getKBestLoops(*loop_candidate, eset_independent) :
+                                computeIndependentSubgraph(*loop_candidate, eset_independent);
 
     // eset_independent.size() == 0 --> no intersection found
     bool intersection_found = (eset_independent.size() > 0);
@@ -125,11 +129,7 @@ pair<int, int> IPC<EDGE, VERTEX>::computeIndependentSubgraph(const EDGE& edge_ca
                                                              OptimizableGraph::EdgeSet& eset_independent)
 {
     // Get the vertices ids of the candidate edge
-    int v0_id = min(edge_candidate.vertices()[0]->id(), 
-                    edge_candidate.vertices()[1]->id());
-    int v1_id = max(edge_candidate.vertices()[0]->id(), 
-                    edge_candidate.vertices()[1]->id());
-    pair<int, int> cand(v0_id, v1_id);
+    pair<int, int> cand = getOrderedPair(&edge_candidate);
 
     // Initialize the extremes of the independent subgraph using the candidate edge
     pair<int, int> extremes(cand.first, cand.second);
@@ -147,15 +147,11 @@ pair<int, int> IPC<EDGE, VERTEX>::computeIndependentSubgraph(const EDGE& edge_ca
             // If the edge is already included, skip it
             if (included_edges[edge_cidx]) continue;
 
-            int vt0_id = min(_max_consensus_set[edge_cidx]->vertices()[0]->id(),
-                             _max_consensus_set[edge_cidx]->vertices()[1]->id());
-            int vt1_id = max(_max_consensus_set[edge_cidx]->vertices()[0]->id(),
-                             _max_consensus_set[edge_cidx]->vertices()[1]->id());
-            const auto& trusted_edge = make_pair(vt0_id, vt1_id);
+            const auto& trusted_edge = getOrderedPair(_max_consensus_set[edge_cidx]);
 
             // Compute intersection with the current extremes
-            int intersection = min(trusted_edge.second, extremes.second) - max(trusted_edge.first, extremes.first);
-            
+            int intersection = static_cast<int>(intersection_calc(extremes, trusted_edge));
+
             if (intersection <= 0) continue;  // No intersection
 
             // Update extremes if an intersection is found
@@ -168,6 +164,82 @@ pair<int, int> IPC<EDGE, VERTEX>::computeIndependentSubgraph(const EDGE& edge_ca
     }
 
     return extremes;
+}
+
+
+template <class EDGE, class VERTEX> 
+pair<int, int> IPC<EDGE, VERTEX>::getKBestLoops(const EDGE& edge_candidate, 
+                                                OptimizableGraph::EdgeSet& kbest_edges)
+{
+    // Assuring the output set is empty
+    kbest_edges.clear();
+
+    // Get the vertices ids of the candidate edge
+    pair<int, int> cand = getOrderedPair(&edge_candidate);
+
+    // Initialize the extremes of the independent subgraph using the candidate edge
+    pair<int, int> extremes(cand.first, cand.second);
+
+    // Compute IoU for all the voters
+    int iters = min(_k_buddies, (int)_max_consensus_set.size());
+    vector<bool> included_edges(_max_consensus_set.size(), false);
+    for (int idx = 0; idx < iters; ++idx)
+    {
+        double max_iou = -1.0;
+        double min_union = std::numeric_limits<double>::max();
+        int max_iou_idx = -1;
+        for (size_t vt_loop_idx = 0; vt_loop_idx < _max_consensus_set.size(); ++vt_loop_idx)
+        {
+            // Skip if already included
+            if (included_edges[vt_loop_idx]) continue;
+
+            pair<int, int> vt_pair = getOrderedPair(_max_consensus_set[vt_loop_idx]);
+
+            // Compute IoU
+            double iou_score = iou_calc(extremes, vt_pair);
+
+            // Skip if IoU is STRICTLY LESS than the maximum found so far
+            if (iou_score < max_iou || iou_score == 0.0) continue;
+
+            // Compute the union of the vertices ids, we prefer the one with the smallest union
+            double union_score = union_calc(extremes, vt_pair);
+
+            // Skip if the iou is the same but the union is not better than the current best
+            /**/
+            if (iou_score ==  max_iou && union_score >= min_union) 
+                continue;  
+            /**/
+
+            // Update maximum IoU and index
+            max_iou = iou_score;
+            max_iou_idx = vt_loop_idx;
+            min_union = union_score;
+        }
+
+        if (max_iou_idx < 0 ) continue;
+
+        included_edges[max_iou_idx] = true;
+        kbest_edges.insert(_max_consensus_set[max_iou_idx]);
+
+        // Update extremes
+        pair<int, int> vt_pair = getOrderedPair(_max_consensus_set[max_iou_idx]);
+        extremes.first = min(extremes.first, vt_pair.first);
+        extremes.second = max(extremes.second, vt_pair.second);
+    }
+
+    cout << "K-Best Loops: " << kbest_edges.size() << endl;
+    cout << "For the candidate edge: [" << cand.first << ", " << cand.second << "]\n";
+    cout << "This are the best loops:\n";
+    for (const auto& hyper_edge : kbest_edges)
+    {
+        auto edge = dynamic_cast<const EDGE*>(hyper_edge);
+        pair<int, int> loop_pair = getOrderedPair(edge);
+        cout << "L(" << loop_pair.first << ", " << loop_pair.second << ")\n";
+    }
+    std::cout << "Extremes: [" << extremes.first << ", " << extremes.second << "]\n";
+    cout << "----------------------------------------\n";
+
+    return extremes;    
 }
 
 

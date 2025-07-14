@@ -67,3 +67,12 @@ Method increases the weight of the odometry edges partecipating to the optimizat
 */
 template <class EDGE>
 void robustifyVoters(int id1, int id2, double s_factor, std::vector<EDGE*>& voters);
+
+
+template <class EDGE>
+std::pair<int, int> getOrderedPair(const EDGE* edge);
+
+
+double intersection_calc(const std::pair<int, int>& e1, const std::pair<int, int>& e2);
+double union_calc(const std::pair<int, int>& e1, const std::pair<int, int>& e2);
+double iou_calc(const std::pair<int, int>& e1, const std::pair<int, int>& e2);
