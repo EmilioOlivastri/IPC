@@ -11,20 +11,19 @@ public :
 
     bool agreementCheck(EDGE* loop_candidate);
     bool removeEdgeFromCnS(EDGE* edge);
-    bool addEdgeToCnS(EDGE* edge);
+    void addEdgeToCnS(EDGE* edge);
 
-    const std::vector<std::pair<int, int>>& getMaxConsensusSet() const { return _max_consensus_set; }
-    const std::vector<std::pair<int, int>>& getClusters() const { return _clusters; }
+    const std::vector<EDGE*>& getMaxConsensusSet() const { return _max_consensus_set; }
 
 private :
 
+    std::pair<int, int> computeIndependentSubgraph(const EDGE& edge_candidate,
+                                                   g2o::OptimizableGraph::EdgeSet& eset_independent);
+
     g2o::SparseOptimizer* _problem;
 
-    std::vector<std::pair<int, int>> _max_consensus_set;
-    std::vector<std::pair<int, int>> _clusters;
+    std::vector<EDGE*> _max_consensus_set; 
     std::vector<EDGE*> _odom_edges;
-    std::vector<g2o::OptimizableGraph::EdgeSet> _edgesxcl;
-    std::vector<g2o::OptimizableGraph::EdgeSet> _edgesxcl_only_loops;
 
     double _fast_reject_th;
     int _fast_reject_iter_base;

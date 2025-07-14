@@ -368,6 +368,14 @@ bool cmpEdgesID(OptimizableGraph::Edge* e1, OptimizableGraph::Edge* e2)
     return (e1->vertices()[1]->id() < e2->vertices()[1]->id());
 }
 
+bool cmpEdgesTime(OptimizableGraph::Edge* e1, OptimizableGraph::Edge* e2)
+{
+    int v1_end = max(e1->vertices()[0]->id(), e1->vertices()[1]->id());
+    int v2_end = max(e2->vertices()[0]->id(), e2->vertices()[1]->id());
+
+    return (v1_end < v2_end);
+}
+
 bool cmpTime(pair<int, OptimizableGraph::Edge*> p1, pair<int, OptimizableGraph::Edge*> p2)
 {
     int id1_v1 = p1.second->vertices()[1]->id();

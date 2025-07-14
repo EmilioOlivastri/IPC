@@ -106,6 +106,7 @@ bool cmpFirst(std::pair<int, int> p1, std::pair<int, int> p2);
 bool cmpSecond(std::pair<int, int> p1, std::pair<int, int> p2);
 bool cmpEdgesID(g2o::OptimizableGraph::Edge* e1, 
                 g2o::OptimizableGraph::Edge* e2);
+bool cmpEdgesTime(g2o::OptimizableGraph::Edge* e1, g2o::OptimizableGraph::Edge* e2);
 bool cmpScores(std::pair<double, g2o::OptimizableGraph::Edge*> p1, 
                std::pair<double, g2o::OptimizableGraph::Edge*> p2);
 bool cmpTime(std::pair<int, g2o::OptimizableGraph::Edge*> p1, 
