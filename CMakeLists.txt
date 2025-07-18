@@ -78,3 +78,21 @@ target_link_libraries(graph_fixer
   ${YAML_CPP_LIBRARIES}
   ${GLOG_LIBRARY}
  )
+ 
+ 
+add_library(ipclib SHARED 
+src/utils.cpp
+src/consensus_utils.cpp
+src/consensus.cpp)
+
+target_link_libraries(ipclib
+  ${G2O_TYPES_SLAM2D}
+  ${G2O_TYPES_SLAM3D}
+  ${G2O_TYPES_DATA}
+  ${G2O_CORE_LIBRARY}
+  ${G2O_STUFF_LIBRARY}
+  ${G2O_SOLVER_EIGEN}
+  ${YAML_CPP_LIBRARIES}
+  ${GLOG_LIBRARY}
+ )
+ 
