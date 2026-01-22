@@ -62,11 +62,21 @@ void propagateGuess(g2o::SparseOptimizer& graph, int id1, int id2, const std::ve
 Method increases the weight of the odometry edges partecipating to the optimization.
 @ param id1 : starting vertex id of the subgraph;
 @ param id2 : ending vertex id of the subgraph;
-@ param s_factor : scaling factor for the weight;
+@ param s_factor : scaling factor for the weight to be used in the robustifier;
 @ param voters : edges that partecipate to the optimization;
 */
 template <class EDGE>
-void robustifyVoters(int id1, int id2, double s_factor, std::vector<EDGE*>& voters);
+void robustifyVoters(int id1, int id2, double s_factor, double delta, std::vector<EDGE*>& voters);
+
+/*
+Method increases the weight of the odometry edges partecipating to the optimization.
+@ param id1 : starting vertex id of the subgraph;
+@ param id2 : ending vertex id of the subgraph;
+@ param s_factor : scaling factor for the information matrix used in the voting;
+@ param voters : edges that partecipate to the optimization;
+*/
+template <class EDGE>
+void robustifyVotersMatrix(int id1, int id2, double s_factor, std::vector<EDGE*>& voters);
 
 
 template <class EDGE>

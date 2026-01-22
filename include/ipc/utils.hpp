@@ -28,6 +28,7 @@ struct Config
   bool visualize;
   int canonic_inliers;
   double s_factor;
+  double mEst_delta;
   double fast_reject_th;
   int fast_reject_iter_base;
   double slow_reject_th;

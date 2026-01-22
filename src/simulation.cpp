@@ -43,7 +43,7 @@ void simulating_incremental_data(const Config& cfg,
         chrono::microseconds delta_time = chrono::duration_cast<chrono::microseconds>(end - begin);
         avg_time += delta_time.count() / 1000000.0;
 
-        //printProgress((double)(candidate_id + 1) / (double)tot_hypothesis);
+        printProgress((double)(candidate_id + 1) / (double)tot_hypothesis);
     }
     cout << "\nCompleted!" << endl;
 
@@ -53,7 +53,8 @@ void simulating_incremental_data(const Config& cfg,
 
     OptimizableGraph::EdgeSet eset_gl;
     for ( size_t i = 0 ; i < odom_edges.size(); eset_gl.insert(odom_edges[i++]) )
-        odom_edges[i]->setInformation(odom_edges[i]->information() / s_factor);
+        odom_edges[i]->setRobustKernel(nullptr);
+
     for ( size_t i = 0 ; i < gt_loops.size(); ++i )
         if ( bucket[i] == 1 )
             eset_gl.insert(gt_loops[i].second);
@@ -85,6 +86,8 @@ void simulating_incremental_data(const Config& cfg,
     cout << "Size of MAX consistent set = " << max_consensus_set.size() << endl;
 
     cout << "Avg Time x test = " << avg_time / tot_hypothesis << " [s]\n";
+    cout << "[TP, TN] = [" << tp << ", " << tn << "]" << endl;        
+    cout << "[FP, FN] = [" << fp << ", " << fn << "]" << endl;        
     cout << "Precision = " << precision << endl;        
     cout << "Recall = " << recall << endl;
 

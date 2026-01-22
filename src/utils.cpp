@@ -103,7 +103,11 @@ void setProblem(const string& problem_file,
     // allocate the solver
     OptimizationAlgorithmProperty solverProperty;
     optimizer.setAlgorithm(OptimizationAlgorithmFactory::instance()->construct("dl_var", solverProperty));
-    
+    //BlockSolverX::LinearSolverType * linearSolver = new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
+    //BlockSolverX* solver_ptr = new BlockSolverX(std::unique_ptr<BlockSolverX::LinearSolverType>(linearSolver));
+    //g2o::OptimizationAlgorithmDogleg* solver = new g2o::OptimizationAlgorithmDogleg(std::unique_ptr<BlockSolverX>(solver_ptr));
+    //optimizer.setAlgorithm(solver);
+
     // Loading the g2o file
     ifstream ifs(problem_file.c_str());
     if (!ifs) 
@@ -323,6 +327,7 @@ void readConfig(const string& cfg_filepath, Config& out_cfg)
     out_cfg.ground_truth = config["ground_truth"].as<string>();
     out_cfg.output = config["output"].as<string>();
     out_cfg.s_factor = config["s_factor"].as<double>();
+    out_cfg.mEst_delta = config["m_estimator_delta"].as<double>();
     out_cfg.visualize = config["visualize"].as<int>() == 1 ? true : false;
     out_cfg.canonic_inliers = config["canonic_inliers"].as<int>();
     out_cfg.fast_reject_th = config["fast_reject_th"].as<double>();

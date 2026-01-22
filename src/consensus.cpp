@@ -16,10 +16,9 @@ IPC<EDGE, VERTEX>::IPC(g2o::SparseOptimizer& open_loop_problem, const Config& cf
 
     // Robustify simple voters --> only once
     _s_factor = cfg.s_factor;
-    double th = cfg.fast_reject_th;
+    double th = cfg.mEst_delta;
     double sqrt_th = sqrt(th);
-    robustifyVoters<EDGE>(0, _odom_edges.size(), _s_factor, _odom_edges);
-
+    robustifyVoters<EDGE>(0, _odom_edges.size(), _s_factor, sqrt_th, _odom_edges);
     propagateGuess<EDGE, VERTEX>(*_problem, 0, _odom_edges.size(), _odom_edges);
     
     store<VERTEX>(*_problem);

@@ -1,4 +1,5 @@
 #include "ipc/consensus_utils.hpp"
+#include "ipc/ipc_kernel_impl.hpp"
 
 using namespace std;
 using namespace g2o;
@@ -121,7 +122,27 @@ template void propagateGuess<EdgeSE3, VertexSE3>(SparseOptimizer& voting, int id
 /*----------------------------------------------------------------*/
 
 template <class EDGE>
-void robustifyVoters(int id1, int id2, double s_factor, vector<EDGE*>& voters)
+void robustifyVoters(int id1, int id2, double s_factor, double delta, vector<EDGE*>& voters)
+{
+    // Iterating through voters adding robust kernel
+    for ( size_t j = id1 ; j < id2; ++j )
+    {
+        //RobustKernelIPCGatedQuad* rk = new RobustKernelIPCGatedQuad();
+        RobustKernelIPC* rk = new RobustKernelIPC();
+        rk->setScale(s_factor);
+        rk->setDelta(delta);
+        voters[j]->setRobustKernel(rk);
+    }
+    return;
+}
+
+template void robustifyVoters<EdgeSE2>(int id1, int id2, double s_factor, double delta, vector<EdgeSE2*>& voters);
+template void robustifyVoters<EdgeSE3>(int id1, int id2, double s_factor, double delta, vector<EdgeSE3*>& voters);
+
+/*----------------------------------------------------------------*/
+// Original version of IPC without m-estimator formulation
+template <class EDGE>
+void robustifyVotersMatrix(int id1, int id2, double s_factor, vector<EDGE*>& voters)
 {
     // Iterating through voters adding robust kernel
     for ( size_t j = id1 ; j < id2; ++j )
@@ -129,8 +150,8 @@ void robustifyVoters(int id1, int id2, double s_factor, vector<EDGE*>& voters)
     return;
 }
 
-template void robustifyVoters<EdgeSE2>(int id1, int id2, double s_factor, vector<EdgeSE2*>& voters);
-template void robustifyVoters<EdgeSE3>(int id1, int id2, double s_factor, vector<EdgeSE3*>& voters);
+template void robustifyVotersMatrix<EdgeSE2>(int id1, int id2, double s_factor, vector<EdgeSE2*>& voters);
+template void robustifyVotersMatrix<EdgeSE3>(int id1, int id2, double s_factor, vector<EdgeSE3*>& voters);
 
 /*----------------------------------------------------------------*/
 template <class EDGE>

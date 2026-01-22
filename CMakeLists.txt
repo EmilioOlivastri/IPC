@@ -26,6 +26,7 @@ examples/ipc_tester_2D.cpp
 src/utils.cpp
 src/consensus_utils.cpp
 src/consensus.cpp
+src/ipc_kernel_impl.cpp
 src/simulation.cpp
 )
 
@@ -46,6 +47,7 @@ examples/ipc_tester_3D.cpp
 src/utils.cpp
 src/consensus_utils.cpp
 src/consensus.cpp
+src/ipc_kernel_impl.cpp
 src/simulation.cpp
 )
 
@@ -66,6 +68,7 @@ examples/graph_fixer.cpp
 src/utils.cpp
 src/consensus_utils.cpp
 src/consensus.cpp
+src/ipc_kernel_impl.cpp
 )
 
 target_link_libraries(graph_fixer
@@ -83,7 +86,8 @@ target_link_libraries(graph_fixer
 add_library(ipclib SHARED 
 src/utils.cpp
 src/consensus_utils.cpp
-src/consensus.cpp)
+src/consensus.cpp
+src/ipc_kernel_impl.cpp)
 
 target_link_libraries(ipclib
   ${G2O_TYPES_SLAM2D}
