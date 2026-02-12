@@ -101,12 +101,13 @@ void setProblem(const string& problem_file,
     optimizer.setVerbose(false);
     
     // allocate the solver
-    OptimizationAlgorithmProperty solverProperty;
-    optimizer.setAlgorithm(OptimizationAlgorithmFactory::instance()->construct("dl_var", solverProperty));
-    //BlockSolverX::LinearSolverType * linearSolver = new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
-    //BlockSolverX* solver_ptr = new BlockSolverX(std::unique_ptr<BlockSolverX::LinearSolverType>(linearSolver));
-    //g2o::OptimizationAlgorithmDogleg* solver = new g2o::OptimizationAlgorithmDogleg(std::unique_ptr<BlockSolverX>(solver_ptr));
-    //optimizer.setAlgorithm(solver);
+    //OptimizationAlgorithmProperty solverProperty;
+    //optimizer.setAlgorithm(OptimizationAlgorithmFactory::instance()->construct("dl_var", solverProperty));
+    BlockSolverX::LinearSolverType * linearSolver = new LinearSolverEigen<BlockSolverX::PoseMatrixType>();
+    BlockSolverX* solver_ptr = new BlockSolverX(std::unique_ptr<BlockSolverX::LinearSolverType>(linearSolver));
+    //OptimizationAlgorithmDogleg* solver = new OptimizationAlgorithmDogleg(std::unique_ptr<BlockSolverX>(solver_ptr));
+    OptimizationAlgorithmGaussNewton *solver = new OptimizationAlgorithmGaussNewton(std::unique_ptr<BlockSolverX>(solver_ptr));
+    optimizer.setAlgorithm(solver);
 
     // Loading the g2o file
     ifstream ifs(problem_file.c_str());

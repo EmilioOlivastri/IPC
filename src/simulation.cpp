@@ -78,8 +78,8 @@ void simulating_incremental_data(const Config& cfg,
         else if ( !gt_loops[counter].first && bucket[counter] == 1 ) ++fp;
         else if ( !gt_loops[counter].first && bucket[counter] == 0 ) ++tn;
 
-    float precision = tp / (float)(tp + fp);
-    float recall = tp / (float)(tp + fn);
+    float precision = tp + fp > 0 ? tp / (float)(tp + fp) : 0.0;
+    float recall = tp + fn > 0 ? tp / (float)(tp + fn) : 0.0;
 
     //const vector<pair<int, int>> clusters = ipc.getClusters();
     const vector<EDGE*> max_consensus_set = ipc.getMaxConsensusSet();

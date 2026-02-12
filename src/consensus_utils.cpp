@@ -11,7 +11,7 @@ bool isAgreeingWithCurrentState(SparseOptimizer& problem, OptimizableGraph::Edge
     problem.initializeOptimization(eset);
     problem.computeActiveErrors();
     int iter = iter_base;
-    iter = eset.size() > 100 ? iter * 5 : iter ;
+    //iter = eset.size() > 500 ? iter * 5 : iter ;
     problem.optimize(iter);
     problem.computeActiveErrors();
 

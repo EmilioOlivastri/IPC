@@ -12,6 +12,7 @@ public :
     bool agreementCheck(EDGE* loop_candidate);
     bool removeEdgeFromCnS(EDGE* edge);
     void addEdgeToCnS(EDGE* edge);
+    void recomputeSolution();
 
     const std::vector<EDGE*>& getMaxConsensusSet() const { return _max_consensus_set; }
 

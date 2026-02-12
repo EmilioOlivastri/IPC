@@ -77,6 +77,39 @@ bool IPC<EDGE, VERTEX>::agreementCheck(EDGE* loop_candidate)
         
 }
 
+
+template <class EDGE, class VERTEX>
+void IPC<EDGE, VERTEX>::recomputeSolution()
+{
+    // Recovery action in case false positve integration
+    propagateGuess<EDGE, VERTEX>(*_problem, 0, _odom_edges.size(), _odom_edges);
+
+    // Current optimizable graph
+    OptimizableGraph::EdgeSet eset;
+    int end = 0;
+    for (const auto& loop: _max_consensus_set)
+    {
+        int max_vid = max(loop->vertices()[0]->id(), loop->vertices()[1]->id());
+        end = max(end, max_vid);
+        eset.insert(loop);
+    }
+    for ( size_t j = 0 ; j < end; eset.insert(_odom_edges[j++]) );
+
+    // Recomputing solution
+    fixComplementary(*_problem, 0, end);
+    _problem->initializeOptimization(eset);
+    _problem->computeActiveErrors();
+    //_problem->setVerbose(true);
+    _problem->optimize(15);
+    //_problem->setVerbose(false);
+
+    // Propagating the estimate
+    propagateCurrentGuess<EDGE, VERTEX>(*_problem, end, _odom_edges);
+
+    return;
+}
+
+
 template <class EDGE, class VERTEX>
 bool IPC<EDGE, VERTEX>::removeEdgeFromCnS(EDGE* edge)
 {

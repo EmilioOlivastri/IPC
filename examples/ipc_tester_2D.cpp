@@ -19,6 +19,8 @@ int main(int argc, char** argv)
   Config cfg;
   readConfig(cfgFilename, cfg);
 
+  std::cout << "Dataset: " << cfg.dataset << std::endl;
+
   // Storing initial guess and vertices of optimization
   vector<SE2> init_poses;
   vector<VertexSE2*> v_poses;
