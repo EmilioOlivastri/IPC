@@ -47,27 +47,6 @@ void simulating_incremental_data(const Config& cfg,
     }
     cout << "\nCompleted!" << endl;
 
-    vector<EDGE*> odom_edges;
-    getProblemOdom<EDGE>(open_loop_problem, odom_edges);
-    propagateGuess<EDGE, VERTEX>(open_loop_problem, 0, odom_edges.size(), odom_edges);
-
-    OptimizableGraph::EdgeSet eset_gl;
-    for ( size_t i = 0 ; i < odom_edges.size(); eset_gl.insert(odom_edges[i++]) )
-        odom_edges[i]->setRobustKernel(nullptr);
-
-    for ( size_t i = 0 ; i < gt_loops.size(); ++i )
-        if ( bucket[i] == 1 )
-            eset_gl.insert(gt_loops[i].second);
-
-
-    open_loop_problem.initializeOptimization(eset_gl);
-
-    chrono::steady_clock::time_point begin = chrono::steady_clock::now();
-    open_loop_problem.optimize(1000);
-    chrono::steady_clock::time_point end = chrono::steady_clock::now();
-    chrono::microseconds delta_time = chrono::duration_cast<chrono::microseconds>(end - begin);
-    double dt = delta_time.count() / 1000000.0;
-
     int tp = 0;
     int fp = 0;
     int tn = 0;
