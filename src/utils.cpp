@@ -335,7 +335,7 @@ void readConfig(const string& cfg_filepath, Config& out_cfg)
     out_cfg.fast_reject_iter_base = config["fast_reject_iter_base"].as<int>();
     out_cfg.slow_reject_th = config["slow_reject_th"].as<double>();
     out_cfg.slow_reject_iter_base = config["slow_reject_iter_base"].as<int>();
-    out_cfg.k_buddies = config["batch_size"].as<int>();
+    out_cfg.batch_size = config["batch_size"].as<int>();
     out_cfg.use_recovery = config["use_recovery"].as<bool>();
 
     return;

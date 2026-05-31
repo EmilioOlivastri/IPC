@@ -33,8 +33,7 @@ struct Config
   int fast_reject_iter_base;
   double slow_reject_th;
   int slow_reject_iter_base;
-  bool use_best_k_buddies;
-  int k_buddies;
+  int batch_size;
   bool use_recovery;
 };
 
