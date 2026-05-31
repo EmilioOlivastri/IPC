@@ -30,8 +30,10 @@ IPC<EDGE, VERTEX>::IPC(g2o::SparseOptimizer& open_loop_problem, const Config& cf
     _slow_reject_th = cfg.slow_reject_th;
     _slow_reject_iter_base = cfg.slow_reject_iter_base;
 
-    _use_best_k_buddies = cfg.use_best_k_buddies;
-    _k_buddies = _use_best_k_buddies ? cfg.k_buddies : -1;
+    //_use_best_k_buddies = cfg.use_best_k_buddies;
+    //_k_buddies = _use_best_k_buddies ? cfg.k_buddies : -1;
+    _use_best_k_buddies = false;
+    _k_buddies = -1;
 }
 
 template <class EDGE, class VERTEX> 
