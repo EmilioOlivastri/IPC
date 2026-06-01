@@ -320,7 +320,7 @@ void readLine(ifstream& in_data, Isometry3d& pose)
 
 void readConfig(const string& cfg_filepath, Config& out_cfg)
 {
-    const YAML::Node config = YAML::LoadFile(cfg_filepath);
+    YAML::Node config = YAML::LoadFile(cfg_filepath);
 
     // Filter parameters
     out_cfg.name = config["name"].as<string>();
